@@ -1,0 +1,21 @@
+{
+  "id": "DEVICE-003",
+  "title": "Laitteen tallennustila vähissä",
+  "category": "laitteet",
+  "keywords": [
+    "levytila",
+    "kiintolevy",
+    "tallennustila"
+  ],
+  "symptoms": "Tietokone varoittaa täyttyvästä levystä tai tiedostojen tallennus epäonnistuu.",
+  "steps": [
+    "Tarkista käyttöjärjestelmän tallennustilan näkymä.",
+    "Kirjaa vapaan tilan määrä ja virheilmoitus.",
+    "Pyydä IT-tuelta hyväksytty siivous- tai siirto-ohje. Älä poista järjestelmätiedostoja tai säilytettäviä työaineistoja."
+  ],
+  "needs_human": true,
+  "follow_up": "Paljonko vapaata tilaa näkyy ja mihin tallennus epäonnistuu?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

@@ -1,0 +1,51 @@
+{
+  "id": "DEVICE-008",
+  "title": "Tietokoneen käynnistys pysähtyy logoon tai ilmoitukseen",
+  "category": "laitteet",
+  "symptoms": "Tietokone ei käynnisty käyttöön. Kuvaa tulee, mutta käynnistys pysähtyy logoon tai virheilmoitukseen.",
+  "keywords": [
+    "käynnistys pysähtyy",
+    "jää logoon",
+    "käynnistysvirhe"
+  ],
+  "steps": [
+    "Kirjaa tarkka ilmoitus ja vaihe, johon käynnistys pysähtyi. Älä jaa salaisuuksia tai palautusavaimia.",
+    "Selvitä, edelsikö tilannetta päivitys tai muu muutos. Älä katkaise virtaa kesken päivityksen.",
+    "Jos ruutu pyytää levyn salauksen palautusavainta, siirry salauksen palautuspyynnön käsittelyyn IT-tuessa. Älä muuta salausasetuksia.",
+    "Toimita havainnot IT-tuelle ennen korjaustoimia. Älä muuta BIOS-asetuksia, suorita levyn korjauskomentoja tai asenna järjestelmää uudelleen."
+  ],
+  "follow_up": "Mikä logo tai tarkka ilmoitus jää näkyviin, ja edelsikö ongelmaa päivitys?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R03",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Kuvaa tulee, mutta käyttöjärjestelmään ei päästä."
+  ],
+  "not_applicable_when": [
+    "Täysin pimeä oma näyttö.",
+    "Vain sovellus ei käynnisty.",
+    "Levyn salaus pyytää palautusavainta."
+  ],
+  "applicability": {
+    "startup_guide": true,
+    "requires": {
+      "startup_stage": "boot_stalled"
+    },
+    "excludes": {
+      "recovery_prompt": "disk_encryption"
+    }
+  },
+  "escalation": {
+    "required": true,
+    "timing": "before_changes",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false
+}

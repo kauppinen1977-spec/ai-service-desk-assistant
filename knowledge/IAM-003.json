@@ -1,0 +1,21 @@
+{
+  "id": "IAM-003",
+  "title": "Monivaiheisen tunnistautumisen laitevaihto",
+  "category": "käyttöoikeudet",
+  "keywords": [
+    "mfa",
+    "authenticator",
+    "vahvistuskoodi"
+  ],
+  "symptoms": "Uusi puhelin, vanha puhelin kadonnut tai tunnistautumissovelluksen hyväksyntä ei saavu.",
+  "steps": [
+    "Jos käytössä on aiemmin rekisteröity varamenetelmä, käytä sitä kirjautumiseen.",
+    "Jos varamenetelmää ei ole, ota yhteys IT-tukeen henkilöllisyyden tarkistamista ja tunnistautumistapojen palautusta varten.",
+    "Älä hyväksy kirjautumista, jota et itse aloittanut."
+  ],
+  "needs_human": true,
+  "follow_up": "Onko sinulla aiemmin rekisteröity varamenetelmä?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

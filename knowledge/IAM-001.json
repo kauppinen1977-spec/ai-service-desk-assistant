@@ -1,0 +1,22 @@
+{
+  "id": "IAM-001",
+  "title": "Ylläpito-oikeuksien hyväksyntä",
+  "category": "käyttöoikeudet",
+  "keywords": [
+    "järjestelmänvalvoj",
+    "ylläpitäj",
+    "ylläpito-oike",
+    "admin"
+  ],
+  "steps": [
+    "Kuvaa, mihin työtehtävään tai ohjelmaan lisäoikeutta tarvitaan.",
+    "Toimita pyyntö esihenkilön hyväksyttäväksi kuvitteellisen organisaation käytännön mukaisesti.",
+    "IT-tuki arvioi hyväksynnän jälkeen rajatun tai tilapäisen oikeuden tarpeen. Älä yritä kiertää rajoituksia."
+  ],
+  "needs_human": true,
+  "follow_up": "Mihin tehtävään oikeuksia tarvitaan ja onko esihenkilön hyväksyntä saatu?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio",
+  "symptoms": "Työtehtävä edellyttää ohjelman asennusta tai korotettuja käyttöoikeuksia."
+}

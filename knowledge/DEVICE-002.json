@@ -1,0 +1,22 @@
+{
+  "id": "DEVICE-002",
+  "title": "Ulkoinen näyttö ei näytä kuvaa",
+  "category": "laitteet",
+  "keywords": [
+    "näyttö",
+    "monitor",
+    "telakka"
+  ],
+  "symptoms": "Kannettava toimii, mutta erillinen näyttö on musta tai telakan kautta ei tule kuvaa.",
+  "steps": [
+    "Tarkista näytön virta ja kaapelin kiinnitys molemmista päistä.",
+    "Tarkista näytöstä oikea kuvalähde.",
+    "Kokeile käyttöjärjestelmän näyttöasetuksista, tunnistetaanko ulkoinen näyttö.",
+    "Ilmoita IT-tuelle laitteen ja telakan mallit sekä kokeillut vaiheet."
+  ],
+  "needs_human": true,
+  "follow_up": "Toimiiko kannettavan oma näyttö ja onko välissä telakka?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

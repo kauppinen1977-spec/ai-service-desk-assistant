@@ -1,0 +1,19 @@
+{
+  "id": "DEVICE-001",
+  "title": "Tulostusongelman perustarkistus",
+  "category": "laitteet",
+  "keywords": [
+    "tulost"
+  ],
+  "steps": [
+    "Tarkista, että tulostin on päällä ja siinä on paperia.",
+    "Tarkista, että valittuna on oikea tulostin.",
+    "Kirjaa tulostimen näytön virheilmoitus ja ilmoita se IT-tuelle, jos ongelma jatkuu."
+  ],
+  "needs_human": true,
+  "follow_up": "Näkyykö tulostimessa virheilmoitus?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio",
+  "symptoms": "Tulostin ei tulosta tai näyttää virheilmoituksen."
+}

@@ -1,0 +1,1 @@
+# Versio 0.1 käyttää vain Python 3.11+:n standardikirjastoa.

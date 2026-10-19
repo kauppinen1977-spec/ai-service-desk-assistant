@@ -1,0 +1,21 @@
+{
+  "id": "MAIL-003",
+  "title": "Epäilyttävä sähköpostiviesti",
+  "category": "sähköposti",
+  "keywords": [
+    "kalastelu",
+    "phishing",
+    "epäilyttävä viesti"
+  ],
+  "symptoms": "Viestissä pyydetään salasanaa, maksua tai kiireellistä kirjautumista tuntemattomalle sivulle.",
+  "steps": [
+    "Älä avaa linkkejä tai liitteitä äläkä vastaa viestiin.",
+    "Ilmoita viestistä organisaation sovitulla tietoturvakanavalla.",
+    "Jos avasit linkin tai syötit tunnuksia, ilmoita siitä IT-tuelle heti ja noudata sen toimintaohjeita."
+  ],
+  "needs_human": true,
+  "follow_up": "Avasitko linkin tai syötitkö tietoja? Älä kirjoita salasanaa tähän.",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

@@ -1,0 +1,47 @@
+{
+  "id": "DEVICE-011",
+  "title": "Levyn salauksen palautusavainpyyntö",
+  "category": "laitteet",
+  "symptoms": "Tietokone ei käynnisty käyttöön, koska näytössä pyydetään levyn salauksen palautusavainta.",
+  "keywords": [
+    "bitlocker",
+    "salauksen palautusavain",
+    "palautusavaimen pyyntö"
+  ],
+  "steps": [
+    "Tunnista, pyytääkö näkymä nimenomaan levyn salauksen palautusavainta. Älä kirjoita avainta keskusteluun.",
+    "Kirjaa laitteen tunniste ja palautuspyynnön alkaminen sekä sitä edeltäneet muutokset.",
+    "Ota yhteys IT-tukeen hyväksyttyä palautusmenettelyä varten. Henkilöllisyys ja käyttöoikeus tarkistetaan siinä.",
+    "Älä tyhjennä TPM:ää, poista salausta tai muuta BIOS-asetuksia. Älä käytä tuntemattomia palautuspalveluja."
+  ],
+  "follow_up": "Pyytääkö näkymä levyn salauksen palautusavainta, ja mitä muutoksia tehtiin ennen sitä?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R08",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Nimenomainen levyn salauksen palautusnäkymä."
+  ],
+  "not_applicable_when": [
+    "Unohtunut työtilin salasana.",
+    "Varmistamaton yleinen käynnistysvirhe."
+  ],
+  "applicability": {
+    "startup_guide": true,
+    "requires": {
+      "recovery_prompt": "disk_encryption"
+    }
+  },
+  "escalation": {
+    "required": true,
+    "timing": "before_changes",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": true
+}

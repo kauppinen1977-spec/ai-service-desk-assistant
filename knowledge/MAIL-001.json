@@ -1,0 +1,21 @@
+{
+  "id": "MAIL-001",
+  "title": "Sähköpostiongelman kartoitus",
+  "category": "sähköposti",
+  "keywords": [
+    "sähköposti",
+    "outlook"
+  ],
+  "steps": [
+    "Tarkista tavallisen verkkosivun avulla internetyhteys.",
+    "Kirjaa, koskeeko ongelma lähettämistä, vastaanottamista vai sovelluksen avaamista.",
+    "Kokeile organisaation jo käyttämää verkkopostia, jos sen osoite on sinulla tiedossa. Älä avaa viestissä saatua uutta kirjautumislinkkiä.",
+    "Toimita virheilmoitus IT-tuelle, jos ongelma jatkuu."
+  ],
+  "needs_human": true,
+  "follow_up": "Mikä virheilmoitus näkyy ja koskeeko ongelma myös verkkopostia?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio",
+  "symptoms": "Sähköpostin lähetys tai vastaanotto ei onnistu."
+}

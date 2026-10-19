@@ -1,0 +1,46 @@
+{
+  "id": "DEVICE-012",
+  "title": "Poistetun tai ylikirjoitetun tiedoston palautustarve",
+  "category": "laitteet",
+  "symptoms": "Tiedosto on poistettu tai ylikirjoitettu ja käyttäjä tarvitsee aiemman sisällön takaisin.",
+  "keywords": [
+    "tiedosto poistettu",
+    "ylikirjoitin",
+    "poistin tiedoston"
+  ],
+  "steps": [
+    "Kirjaa tiedoston sijainti ja poiston tai ylikirjoituksen ajankohta ilman luottamuksellista sisältöä.",
+    "Vältä uusia tallennuksia saman tiedoston päälle. Säilytä saatavilla olevat versiot.",
+    "Tarkista vain ennestään tunnetun palvelun roskakorista tai versiohistoriasta, näkyykö aiempi versio. Älä palauta korvaavasti, jos vaikutus muiden muutoksiin ei ole selvä.",
+    "Pyydä IT-tuelta palautuksen arvio. Älä asenna palautusohjelmia tai lähetä tiedostoa ulkopuoliseen palveluun. Palautumista ei voida luvata."
+  ],
+  "follow_up": "Missä tiedosto sijaitsi, poistettiinko vai ylikirjoitettiinko se ja milloin?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R09",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Vahvistettu tiedoston poistaminen tai ylikirjoittaminen."
+  ],
+  "not_applicable_when": [
+    "Tiedosto on olemassa mutta ei avaudu.",
+    "Poistettu sähköpostiviesti."
+  ],
+  "applicability": {
+    "requires": {
+      "file_loss": true
+    }
+  },
+  "escalation": {
+    "required": true,
+    "timing": "before_changes",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false
+}

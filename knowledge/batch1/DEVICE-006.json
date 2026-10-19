@@ -1,0 +1,48 @@
+{
+  "id": "DEVICE-006",
+  "title": "Tietokone ei reagoi käynnistykseen",
+  "category": "laitteet",
+  "symptoms": "Tietokone ei käynnisty. Viimeisellä yrityksellä ei syttynyt valoja, kuulunut ääntä tai tullut kuvaa.",
+  "keywords": [
+    "ei valoja",
+    "täysin mykkä",
+    "ei reagoi virtapainikkeeseen"
+  ],
+  "steps": [
+    "Jos havaitset turvonneen akun, poikkeavaa kuumenemista tai näkyvän vaurion, älä jatka käynnistys- tai lataustarkistuksia. Ota yhteys IT-tukeen.",
+    "Kirjaa laitteen tyyppi ja viimeisen käynnistysyrityksen havainnot. Älä tee toistuvia käynnistysyrityksiä.",
+    "Vain jos laitteessa tai virtajohdossa ei ole vaaran merkkejä, tarkista ehjän yhteensopivan virtaliitännän näkyvä kiinnitys. Älä avaa laitetta tai irrota akkua.",
+    "Jos laite ei reagoi tai turvallisuudesta ei ole varmuutta, toimita havainnot IT-tuelle."
+  ],
+  "follow_up": "Syttyikö viimeisellä käynnistysyrityksellä merkkivaloja, kuuluiko ääntä tai näkyikö kuvaa?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R01",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Vahvistettu täysin reagoimaton käynnistysyritys.",
+    "Ei kuumenemista, turpoamista tai vauriota tavallisia tarkistuksia tehtäessä."
+  ],
+  "not_applicable_when": [
+    "Virran merkkejä tai kuvaa näkyy.",
+    "Oire koskee vain ohjelmaa tai ulkoista näyttöä."
+  ],
+  "applicability": {
+    "startup_guide": true,
+    "requires": {
+      "startup_stage": "no_response"
+    }
+  },
+  "escalation": {
+    "required": true,
+    "timing": "if_unresolved",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false
+}

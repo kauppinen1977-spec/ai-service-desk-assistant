@@ -1,0 +1,47 @@
+{
+  "id": "IAM-008",
+  "title": "Tunnistamaton kirjautuminen tai tilimuutos",
+  "category": "käyttöoikeudet",
+  "symptoms": "Käyttäjä saa ilmoituksen onnistuneesta kirjautumisesta tai tilin muutoksesta, jota ei itse tunnista.",
+  "keywords": [
+    "tunnistamaton kirjautuminen",
+    "onnistunut kirjautuminen",
+    "tilimuutos"
+  ],
+  "steps": [
+    "Älä käytä ilmoituksen mukana tullutta uutta kirjautumislinkkiä äläkä anna vahvistuskoodeja.",
+    "Ota heti yhteys IT-tukeen ja kerro tunnistamattomasta tapahtumasta. Ilmoitusta ei tehdä puolestasi.",
+    "Säilytä ilmoituksen ajankohta, palvelu ja tapahtuman kuvaus. Älä poista tapahtumatietoja tai muuta tiliä omatoimisesti ilmoituksen ohjeilla."
+  ],
+  "follow_up": "Mikä kirjautuminen tai muutos ilmoitettiin, ja teitkö itse vastaavan tapahtuman?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R05",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Ilmoitettu onnistunut kirjautuminen tai tilimuutos, jota käyttäjä ei tunnista."
+  ],
+  "not_applicable_when": [
+    "Tunnistettu oma kirjautuminen.",
+    "Vasta saapunut hyväksyntäpyyntö ilman ilmoitettua onnistumista."
+  ],
+  "applicability": {},
+  "escalation": {
+    "required": true,
+    "timing": "immediate",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false,
+  "safety_event": "suspicious_account_event",
+  "safety_steps": [
+    1,
+    2,
+    3
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "NET-004",
+  "title": "Internet ei toimi millään sivulla",
+  "category": "verkko",
+  "keywords": [
+    "internetyhteys",
+    "ei internetiä"
+  ],
+  "symptoms": "Yhteys internetiin puuttuu kokonaan. Yksikään verkkosivu ei avaudu. Laite ei saa verkkoyhteyttä.",
+  "steps": [
+    "Tarkista verkkokaapelin kiinnitys tai tunnetun langattoman verkon yhteys.",
+    "Kokeile kahta ennestään tunnettua verkkosivua.",
+    "Vertaa, toimiiko yhteys toisella laitteella samassa verkossa.",
+    "Ilmoita IT-tuelle, koskeeko vika yhtä vai useampaa laitetta."
+  ],
+  "needs_human": true,
+  "follow_up": "Toimiiko toinen laite samassa verkossa?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

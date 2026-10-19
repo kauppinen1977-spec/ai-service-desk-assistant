@@ -1,0 +1,21 @@
+{
+  "id": "VPN-001",
+  "title": "VPN-yhteyden perustarkistus",
+  "category": "verkko",
+  "keywords": [
+    "vpn",
+    "etäyhteys"
+  ],
+  "steps": [
+    "Tarkista, että tavallinen verkkosivu avautuu ilman VPN-yhteyttä.",
+    "Sulje VPN-sovellus ja käynnistä se uudelleen.",
+    "Kirjaa tarkka virheilmoitus ja yhteysongelman alkamisaika.",
+    "Jos yhteys ei palaudu, toimita tiedot IT-tuelle. Älä muuta tietoturva-asetuksia."
+  ],
+  "needs_human": true,
+  "follow_up": "Mikä virheilmoitus näkyy ja toimiiko muu internetyhteys?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio",
+  "symptoms": "Työpaikan verkon etäkäyttö kotitoimistolta epäonnistuu. Verkkoyhteys muihin palveluihin toimii. VPN-yhteys ei muodostu."
+}

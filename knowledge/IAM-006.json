@@ -1,0 +1,20 @@
+{
+  "id": "IAM-006",
+  "title": "Työsuhteen päättymisen käyttöoikeudet",
+  "category": "käyttöoikeudet",
+  "keywords": [
+    "offboarding",
+    "työsuhde päättyy"
+  ],
+  "symptoms": "Lähtevän työntekijän tilit, laitteet ja tietojen omistajuus pitää käsitellä.",
+  "steps": [
+    "Esihenkilö toimittaa hyväksytyn päättymisilmoituksen ja päättymisajankohdan.",
+    "IT-tuki suunnittelee käyttöoikeuksien päättämisen ja laitteiden palautuksen.",
+    "Tietojen käsittely ja omistajuus ratkaistaan organisaation hyväksytyn menettelyn mukaan. Älä poista tietoja itse."
+  ],
+  "needs_human": true,
+  "follow_up": "Mikä on hyväksytty päättymisajankohta?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

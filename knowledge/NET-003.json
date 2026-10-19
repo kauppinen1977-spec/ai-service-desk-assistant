@@ -1,0 +1,21 @@
+{
+  "id": "NET-003",
+  "title": "Sisäisen palvelun osoite ei avaudu",
+  "category": "verkko",
+  "keywords": [
+    "dns",
+    "nimipalvelu",
+    "sisäinen sivu"
+  ],
+  "symptoms": "Ulkopuoliset sivut toimivat, mutta organisaation sisäisen palvelun osoite ei löydy.",
+  "steps": [
+    "Tarkista, että käytät organisaation ilmoittamaa palveluosoitetta.",
+    "Varmista tarvittava yritysverkko tai etäyhteys ohjeen VPN-001 mukaisesti.",
+    "Kirjaa selaimen tarkka virheilmoitus ja toimita se IT-tuelle. Älä muuta DNS-asetuksia itse."
+  ],
+  "needs_human": true,
+  "follow_up": "Mikä palveluosoite ja tarkka virheilmoitus ovat kyseessä?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

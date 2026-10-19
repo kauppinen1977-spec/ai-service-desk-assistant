@@ -1,0 +1,22 @@
+{
+  "id": "NET-002",
+  "title": "Langattoman verkon yhteysongelma",
+  "category": "verkko",
+  "keywords": [
+    "wifi",
+    "wlan",
+    "langaton"
+  ],
+  "symptoms": "Kannettava ei yhdisty langattomaan verkkoon tai yhteys katkeilee.",
+  "steps": [
+    "Tarkista, että Wi-Fi on päällä eikä lentotila ole käytössä.",
+    "Varmista, että valitset organisaation hyväksymän tai oman tunnetun verkon.",
+    "Kirjaa, näkyykö verkko ja toimiiko yhteys toisella laitteella.",
+    "Jos ongelma jatkuu, toimita havainnot IT-tuelle."
+  ],
+  "needs_human": true,
+  "follow_up": "Näkyykö verkon nimi ja toimivatko muut laitteet samassa verkossa?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

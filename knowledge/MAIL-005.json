@@ -1,0 +1,22 @@
+{
+  "id": "MAIL-005",
+  "title": "Teams-kokouksen ääni ei kuulu",
+  "category": "sähköposti",
+  "keywords": [
+    "teams",
+    "mikrofoni",
+    "kuulokkeet"
+  ],
+  "symptoms": "Verkkokokouksessa oma puhe ei välity tai muiden ääntä ei kuulu.",
+  "steps": [
+    "Tarkista kokoussovelluksessa valittu mikrofoni ja kaiutin.",
+    "Tarkista mykistys sekä sovelluksesta että kuulokkeesta.",
+    "Sulje muut mikrofonia käyttävät sovellukset ja kokeile uudelleen.",
+    "Kirjaa, koskeeko ongelma kaikkia kokouksia."
+  ],
+  "needs_human": true,
+  "follow_up": "Eikö oma puhe välity vai etkö kuule muita?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

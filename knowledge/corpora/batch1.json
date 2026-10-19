@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0",
+  "corpus_id": "batch1",
+  "parent_corpus": "legacy20",
+  "source_count": 30,
+  "status": "first_batch_implemented_requires_organization_review_and_local_vector_validation",
+  "sources": [
+    {
+      "id": "DEVICE-001",
+      "path": "knowledge/DEVICE-001.json",
+      "sha256": "5067b69760b9e541cb81c92e17d189826d9f3c5c09eb40aa7dabf57ea7e59f9d"
+    },
+    {
+      "id": "DEVICE-002",
+      "path": "knowledge/DEVICE-002.json",
+      "sha256": "7d91b0f9b693ff31bc0226e3eb7a2340c0d1dd2032c231084fb50fa1a8839834"
+    },
+    {
+      "id": "DEVICE-003",
+      "path": "knowledge/DEVICE-003.json",
+      "sha256": "ca55093ef0f301381abeb3f7ebefb8a030f8192ee30ec4c4d2753eb1a88a678e"
+    },
+    {
+      "id": "DEVICE-004",
+      "path": "knowledge/DEVICE-004.json",
+      "sha256": "251d1a480c3b020cfba65685d329c364bfe7251aa1a63c53b770b3aeaf119208"
+    },
+    {
+      "id": "DEVICE-005",
+      "path": "knowledge/DEVICE-005.json",
+      "sha256": "e933f99646c03b701e7af9f7ffe9cb78f8ef9d375844a8a6b735e9f20090eb7e"
+    },
+    {
+      "id": "IAM-001",
+      "path": "knowledge/IAM-001.json",
+      "sha256": "18333b4c15eb7381e578835544485e6ff99ff07470ae48ca9874ece0199f7a5e"
+    },
+    {
+      "id": "IAM-002",
+      "path": "knowledge/IAM-002.json",
+      "sha256": "bcb03e22dfdca7cf5b0a58b2683f921f99abd28e16f52ac9033bfaad9a3ecf02"
+    },
+    {
+      "id": "IAM-003",
+      "path": "knowledge/IAM-003.json",
+      "sha256": "d290d379017d501364033bb30bd2a98d834676f49f068a320b1c7b910af6c4a9"
+    },
+    {
+      "id": "IAM-004",
+      "path": "knowledge/IAM-004.json",
+      "sha256": "b0763d093222ccf07342a47730281aaa95348918a6232cc3595794ccbc13c257"
+    },
+    {
+      "id": "IAM-005",
+      "path": "knowledge/IAM-005.json",
+      "sha256": "bf910d225b2704b7c5e8c5ed411f6408ccbb6d58039029f9930d6433eda9473c"
+    },
+    {
+      "id": "IAM-006",
+      "path": "knowledge/IAM-006.json",
+      "sha256": "dad55c3ab7ddffcd80b73dfe59655914010a086162b0b8a6dd01e40b7200b625"
+    },
+    {
+      "id": "MAIL-001",
+      "path": "knowledge/MAIL-001.json",
+      "sha256": "86e08a308dea9710e213cfc321b7c5333eeab0d6c6d252ed441f66ababd14cd2"
+    },
+    {
+      "id": "MAIL-002",
+      "path": "knowledge/MAIL-002.json",
+      "sha256": "c8238edc1890f5437b66277690c3bee4a80f042bfb99dafeeeaa9c3ce6d1fe6e"
+    },
+    {
+      "id": "MAIL-003",
+      "path": "knowledge/MAIL-003.json",
+      "sha256": "812078ac3b734bd19ef11d577028393632c40f4718d3ccee715bb21023d84943"
+    },
+    {
+      "id": "MAIL-004",
+      "path": "knowledge/MAIL-004.json",
+      "sha256": "6fb4fe55717c0f387f19e5a8b09fb66e301424e05359839eb985791e5559f808"
+    },
+    {
+      "id": "MAIL-005",
+      "path": "knowledge/MAIL-005.json",
+      "sha256": "a61bcf34999a811266b04f34272ac9edfee0e61e944ae20916e41af220440cc3"
+    },
+    {
+      "id": "NET-002",
+      "path": "knowledge/NET-002.json",
+      "sha256": "56f72c08af40cbfdd8aece69241d563a1f3e653a1a5c17d3b3e2f6338f8c08a6"
+    },
+    {
+      "id": "NET-003",
+      "path": "knowledge/NET-003.json",
+      "sha256": "e4b27ce7dcafc30222de352fae81725a233865894acbdb5e0626442050d7c37f"
+    },
+    {
+      "id": "NET-004",
+      "path": "knowledge/NET-004.json",
+      "sha256": "34097f1977c075e8faf41aeeb79d6c98bb7206baeba4ee180dc9ce4a6452a477"
+    },
+    {
+      "id": "VPN-001",
+      "path": "knowledge/VPN-001.json",
+      "sha256": "ae2061e5d728c37998b847d3717bab43ad97ced1caba4f4508be8068341278a3"
+    },
+    {
+      "id": "DEVICE-006",
+      "path": "knowledge/batch1/DEVICE-006.json",
+      "sha256": "2cbd6bb1cbaf8fca972cffd415860937059e8467da25ed26a06fd44b4ce8cb48"
+    },
+    {
+      "id": "DEVICE-007",
+      "path": "knowledge/batch1/DEVICE-007.json",
+      "sha256": "0909180c2cdc33ae7dfbe45d808795b8f8f89b40418c33f44278839ba4a56161"
+    },
+    {
+      "id": "DEVICE-008",
+      "path": "knowledge/batch1/DEVICE-008.json",
+      "sha256": "430a3ea4d6003605954e7dfe42de18eedbac54aafb7136d7f653903cf1a2168a"
+    },
+    {
+      "id": "DEVICE-009",
+      "path": "knowledge/batch1/DEVICE-009.json",
+      "sha256": "176c92604dd33cd1be080fa99e2c4fa7cce4c1c22591e816b97570b60cfd9fdf"
+    },
+    {
+      "id": "DEVICE-010",
+      "path": "knowledge/batch1/DEVICE-010.json",
+      "sha256": "39e80897312bb95102274f983b68f63c07a487f7599ba1fc14085f36bc936719"
+    },
+    {
+      "id": "DEVICE-011",
+      "path": "knowledge/batch1/DEVICE-011.json",
+      "sha256": "c8966ddf0de4a706e563f35363722823705d82050e105f71ba8973604866a052"
+    },
+    {
+      "id": "DEVICE-012",
+      "path": "knowledge/batch1/DEVICE-012.json",
+      "sha256": "c896cd36d7ab056360e35d2885788574ecdf94bbb38b1888c374a9ba1a51b326"
+    },
+    {
+      "id": "IAM-007",
+      "path": "knowledge/batch1/IAM-007.json",
+      "sha256": "e7f138d2bab15a81979d6c74346c3ad5daa9447411a45ca186ea1baaf75744ce"
+    },
+    {
+      "id": "IAM-008",
+      "path": "knowledge/batch1/IAM-008.json",
+      "sha256": "cd48d44b0caba894ad22dee89871af14e5ecd1bca9e5a5de0a2e7f110a082621"
+    },
+    {
+      "id": "IAM-009",
+      "path": "knowledge/batch1/IAM-009.json",
+      "sha256": "e810ccd656b3d466c467f621dc7309ae829a6030cd2cbd8a080deac5966c3a18"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "DEVICE-004",
+  "title": "Kannettavan latausongelma",
+  "category": "laitteet",
+  "keywords": [
+    "akku",
+    "laturi",
+    "lataus"
+  ],
+  "symptoms": "Kannettava ei lataudu tai akku tyhjenee poikkeuksellisen nopeasti.",
+  "steps": [
+    "Tarkista ehjän yhteensopivan laturin liitännät ja pistorasian toiminta.",
+    "Jos akku on turvonnut tai laite kuumenee poikkeavasti, lopeta käyttö ja ota yhteys IT-tukeen.",
+    "Kirjaa laitteen malli ja latausilmaisin. Älä avaa laitetta itse."
+  ],
+  "needs_human": true,
+  "follow_up": "Näkyykö latausilmaisin tai poikkeavaa kuumenemista?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

@@ -1,0 +1,47 @@
+{
+  "id": "DEVICE-010",
+  "title": "Haittaohjelmahälytyksen ensikäsittely",
+  "category": "laitteet",
+  "symptoms": "Suojausohjelma hälyttää haittaohjelmasta tai käyttäjä kertoo suorittaneensa epäilyttävän tiedoston.",
+  "keywords": [
+    "haittaohjelmahälytys",
+    "virustorjunta hälytti",
+    "haittaohjelmasta"
+  ],
+  "steps": [
+    "Älä avaa tai suorita epäilyttävää sisältöä uudelleen äläkä salli sitä suojausohjelman eston ohi.",
+    "Ilmoita hälytyksestä heti IT-tuelle. Kirjaa hälyttävä ohjelma, ilmoituksen teksti, ajankohta ja edeltävä toiminta.",
+    "Älä poista suojauksia tai lokeja äläkä asenna puhdistustyökaluja. Eristys- ja korjaustoimet tehdään vain hyväksytyn IT-ohjeen mukaan."
+  ],
+  "follow_up": "Mikä ohjelma hälytti, mitä ilmoituksessa lukee ja avasitko tai suorititko tiedoston?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R07",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Vahvistettu suojausohjelman hälytys tai epäilyttävän tiedoston suorittaminen."
+  ],
+  "not_applicable_when": [
+    "Hypoteettinen kysymys tai lainattu hälytys.",
+    "Pelkkä estämätön ohjelman asennusvirhe."
+  ],
+  "applicability": {},
+  "escalation": {
+    "required": true,
+    "timing": "immediate",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false,
+  "safety_event": "malware_alert",
+  "safety_steps": [
+    1,
+    2,
+    3
+  ]
+}

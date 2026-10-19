@@ -1,0 +1,20 @@
+{
+  "id": "IAM-004",
+  "title": "Lukittu käyttäjätili",
+  "category": "käyttöoikeudet",
+  "keywords": [
+    "lukittu",
+    "lukkiut"
+  ],
+  "symptoms": "Työtili lukittui toistuvien epäonnistuneiden kirjautumisten jälkeen.",
+  "steps": [
+    "Lopeta toistuvat kirjautumisyritykset.",
+    "Kirjaa virheilmoitus ja viimeisen onnistuneen kirjautumisen ajankohta.",
+    "Ota yhteys IT-tukeen tilin tilan ja henkilöllisyyden tarkistamista varten."
+  ],
+  "needs_human": true,
+  "follow_up": "Mikä tarkka virheilmoitus näytetään?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

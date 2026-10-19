@@ -1,0 +1,49 @@
+{
+  "id": "DEVICE-007",
+  "title": "Käynnistyvän tietokoneen oma näyttö on pimeä",
+  "category": "laitteet",
+  "symptoms": "Tietokone ei käynnisty näkyvästi: merkkivalot palavat tai tuuletin pyörii, mutta oma näyttö on musta.",
+  "keywords": [
+    "oma näyttö on musta",
+    "tuuletin pyörii",
+    "oma näyttö pimeä"
+  ],
+  "steps": [
+    "Jos laite kuumenee poikkeavasti tai on vaurioitunut, lopeta tavalliset tarkistukset ja ota yhteys IT-tukeen.",
+    "Kirjaa viimeisen käynnistysyrityksen valot ja äänet sekä se, näkyikö valmistajan logoa.",
+    "Selvitä, koskeeko pimeys koneen omaa näyttöä vai vain erillistä näyttöä. Älä muuta asetuksia näkymättä.",
+    "Toimita IT-tuelle laitteen malli ja havainnot. Älä avaa laitetta tai tee pakotettuja uudelleenkäynnistyksiä."
+  ],
+  "follow_up": "Onko pimeänä koneen oma vai vain erillinen näyttö, ja näkyikö käynnistyessä logoa?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R02",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Virran tai käynnistymisen merkkejä on.",
+    "Koneen oma näyttö pysyy pimeänä."
+  ],
+  "not_applicable_when": [
+    "Vain erillinen näyttö on pimeä.",
+    "Logo tai virheilmoitus näkyy.",
+    "Virran merkkejä ei ole."
+  ],
+  "applicability": {
+    "startup_guide": true,
+    "requires": {
+      "startup_stage": "power_no_display"
+    }
+  },
+  "escalation": {
+    "required": true,
+    "timing": "if_unresolved",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false
+}

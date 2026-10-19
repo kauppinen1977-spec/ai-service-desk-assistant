@@ -1,0 +1,21 @@
+{
+  "id": "IAM-005",
+  "title": "Uuden työntekijän käyttöoikeuspyyntö",
+  "category": "käyttöoikeudet",
+  "keywords": [
+    "uusi työntekijä",
+    "perehdytys",
+    "onboarding"
+  ],
+  "symptoms": "Aloittavalle työntekijälle tarvitaan tili ja työtehtävien mukaiset käyttöoikeudet.",
+  "steps": [
+    "Esihenkilö toimittaa hyväksytyn aloituspyynnön sovitulla lomakkeella.",
+    "Pyynnössä eritellään aloituspäivä, tehtävärooli ja tarvittavat järjestelmät.",
+    "IT-tuki toteuttaa vain hyväksytyt käyttöoikeudet ja sopii tunnusten luovutuksesta."
+  ],
+  "needs_human": true,
+  "follow_up": "Onko esihenkilön hyväksymä aloituspyyntö tehty?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

@@ -1,0 +1,48 @@
+{
+  "id": "IAM-009",
+  "title": "Palvelukohtaisen käyttöeston selvitys",
+  "category": "käyttöoikeudet",
+  "symptoms": "Kirjautuminen onnistuu, mutta yksi palvelu näyttää käyttöoikeus- tai pääsy estetty -ilmoituksen.",
+  "keywords": [
+    "palvelun käyttöoikeus",
+    "palvelu näyttää pääsy estetty",
+    "palveluun ei pääse"
+  ],
+  "steps": [
+    "Kirjaa palvelu ja tarkka käyttöestoilmoitus. Älä kirjoita salasanoja tai tunnistautumiskoodeja.",
+    "Selvitä, onnistuuko kirjautuminen muihin palveluihin ja toimiko kyseinen käyttö aiemmin.",
+    "Erota yhteyden puuttuminen, väärä tili ja käyttöoikeus ennen oikeuspyyntöä. Jos valinta ei ole selvä, pyydä tarkennusta IT-tuelta.",
+    "Toimita mahdollinen oikeuspyyntö hyväksyttäväksi organisaation käytännön mukaan. Älä käytä toisen tunnuksia tai kierrä rajoituksia; hyväksyjä ja toteutus varmistetaan IT-tuessa."
+  ],
+  "follow_up": "Mihin palveluun et pääse, onnistuuko kirjautuminen muihin palveluihin ja toimiko käyttö aiemmin?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R10",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Vahvistettu onnistuva kirjautuminen ja rajattu palvelun käyttöesto."
+  ],
+  "not_applicable_when": [
+    "Unohtunut salasana.",
+    "Vahvistettu tilin lukitus.",
+    "Verkkoyhteys ei muodostu."
+  ],
+  "applicability": {
+    "requires": {
+      "signed_in": true,
+      "access_denied": true
+    }
+  },
+  "escalation": {
+    "required": true,
+    "timing": "before_changes",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": true,
+    "scope": "Uusien käyttöoikeuksien toteutus, ei pelkkä oireiden selvittäminen."
+  },
+  "identity_verification_required": false
+}

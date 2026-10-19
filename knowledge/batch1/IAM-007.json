@@ -1,0 +1,47 @@
+{
+  "id": "IAM-007",
+  "title": "Vieras tunnistautumispyyntö",
+  "category": "käyttöoikeudet",
+  "symptoms": "Käyttäjä saa tunnistautumisen hyväksyntäpyynnön, vaikka ei itse aloittanut kirjautumista.",
+  "keywords": [
+    "vieras tunnistautumispyyntö",
+    "en yritä kirjautua",
+    "en itse aloittanut"
+  ],
+  "steps": [
+    "Älä hyväksy kirjautumista, jota et itse aloittanut.",
+    "Ota heti yhteys IT-tukeen. Kerro, jos olet jo hyväksynyt vieraan pyynnön. Ilmoitusta ei tehdä puolestasi.",
+    "Kirjaa pyynnön aika ja palvelu. Älä lähetä salasanaa tai vahvistuskoodia keskusteluun tai pyynnön lähettäjälle."
+  ],
+  "follow_up": "Aloititko kirjautumisen itse, ja oletko jo hyväksynyt jonkin pyynnön?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R04",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Vahvistettu hyväksyntäpyyntö ja käyttäjän ilmoitus, ettei aloittanut kirjautumista."
+  ],
+  "not_applicable_when": [
+    "Käyttäjän oma kirjautuminen.",
+    "Pelkkä MFA-laitevaihto tai koodin puuttuminen."
+  ],
+  "applicability": {},
+  "escalation": {
+    "required": true,
+    "timing": "immediate",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false,
+  "safety_event": "unsolicited_authentication",
+  "safety_steps": [
+    1,
+    2,
+    3
+  ]
+}

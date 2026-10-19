@@ -1,0 +1,20 @@
+{
+  "id": "MAIL-002",
+  "title": "Sähköpostilaatikon tila täynnä",
+  "category": "sähköposti",
+  "keywords": [
+    "postilaatikko",
+    "kiintiö"
+  ],
+  "symptoms": "Sähköpostin lähettäminen tai vastaanottaminen estyy täyden tallennustilan vuoksi.",
+  "steps": [
+    "Kirjaa tallennustilaa koskeva ilmoitus.",
+    "Tarkista palvelun oma tallennustilan näkymä.",
+    "Pyydä IT-tuelta ohje hyväksyttyyn arkistointiin tai tallennustilan käsittelyyn. Älä poista säilytettäviä työviestejä omin päin."
+  ],
+  "needs_human": true,
+  "follow_up": "Mitä tallennustilailmoituksessa lukee?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

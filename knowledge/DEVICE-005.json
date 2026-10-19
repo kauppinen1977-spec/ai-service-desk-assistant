@@ -1,0 +1,20 @@
+{
+  "id": "DEVICE-005",
+  "title": "Työsovellus ei käynnisty",
+  "category": "laitteet",
+  "keywords": [
+    "sovellus",
+    "ohjelma ei"
+  ],
+  "symptoms": "Asennettu työohjelma sulkeutuu käynnistyessä tai näyttää virheilmoituksen.",
+  "steps": [
+    "Kirjaa ohjelman nimi ja tarkka virheilmoitus.",
+    "Tallenna muu työ ja käynnistä ohjelma uudelleen.",
+    "Jos ongelma jatkuu, ilmoita IT-tuelle ajankohta ja viimeaikaiset muutokset. Älä asenna tuntemattomia korjaustyökaluja."
+  ],
+  "needs_human": true,
+  "follow_up": "Mikä ohjelma ja virheilmoitus ovat kyseessä?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}

@@ -1,0 +1,48 @@
+{
+  "id": "DEVICE-009",
+  "title": "Kadonnut tai varastettu työlaite",
+  "category": "laitteet",
+  "symptoms": "Työlaite on kadonnut tai varastettu eikä ole enää käyttäjän hallinnassa.",
+  "keywords": [
+    "työlaite kadonnut",
+    "työkannettava varastettu",
+    "varastettu"
+  ],
+  "steps": [
+    "Ilmoita kadonneesta tai varastetusta työlaitteesta heti IT-tuelle.",
+    "Kirjaa laitteen tunniste, viimeinen tunnettu sijainti ja katoamisen ajankohta. Kerro myös mukana kadonneista tunnistautumisvälineistä.",
+    "Älä tee etätyhjennystä tai tilimuutoksia omin päin. Jatkotoimista vastaa organisaation hyväksytty käsittely."
+  ],
+  "follow_up": "Mikä työlaite puuttuu, milloin se oli viimeksi hallussasi ja katosiko mukana tunnistautumisvälineitä?",
+  "needs_human": true,
+  "version": "0.3 / erä 1 / 19.10.2026",
+  "owner": "AI Service Desk -projektin tekijä",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; erä 1. Organisaatiokohtaiset jatkomenettelyt varmistetaan ihmiseltä.",
+  "plan_id": "R06",
+  "review_status": "implementation_plan_approved_organization_procedures_manual_review",
+  "applies_when": [
+    "Käyttäjä vahvistaa työlaitteen hallinnan menettämisen."
+  ],
+  "not_applicable_when": [
+    "Vakuutuskorvauksen tai omavastuun laskenta.",
+    "Pelkkä tiedoston katoaminen.",
+    "Laite on löytynyt ja hallinnassa."
+  ],
+  "applicability": {},
+  "escalation": {
+    "required": true,
+    "timing": "immediate",
+    "reason": "Ohjeessa kuvattu turvallisuuspoikkeama, ratkaisematon tilanne tai hyväksyttyä jatkomenettelyä edellyttävä toimi."
+  },
+  "prior_approval": {
+    "required": false,
+    "scope": "Ei uutta toimintavaltuutta. IT-tuen toteutustoimet noudattavat hyväksyttyä menettelyä."
+  },
+  "identity_verification_required": false,
+  "safety_event": "lost_work_device",
+  "safety_steps": [
+    1,
+    2,
+    3
+  ]
+}

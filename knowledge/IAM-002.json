@@ -1,0 +1,20 @@
+{
+  "id": "IAM-002",
+  "title": "Unohtunut salasana",
+  "category": "käyttöoikeudet",
+  "keywords": [
+    "salasana",
+    "password"
+  ],
+  "symptoms": "Käyttäjä ei muista salasanaa eikä pysty kirjautumaan työtilille.",
+  "steps": [
+    "Avaa vain organisaation ennalta ilmoittama salasanan palautuspalvelu.",
+    "Jos itsepalvelu ei onnistu, ota yhteys IT-tukeen henkilöllisyyden tarkistamiseksi sovitulla menetelmällä.",
+    "Älä lähetä salasanaa tai kertakäyttöistä vahvistuskoodia kenellekään."
+  ],
+  "needs_human": true,
+  "follow_up": "Onnistuuko organisaation salasanan itsepalvelu?",
+  "version": "0.2 / 15.10.2026",
+  "owner": "Ville Kauppinen",
+  "scope": "Kuvitteellinen harjoitusorganisaatio; sisältö odottaa tekijän tarkistusta."
+}
