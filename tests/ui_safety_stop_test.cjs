@@ -27,7 +27,14 @@ module.exports = async function(html) {
     assert(nodes.some(n=>n.tag==='h2'&&n.textContent==='Turvallisuuskeskeytys'));
     assert(nodes.some(n=>n.role==='alert'));
     assert(nodes.some(n=>n.tag==='li'&&n.textContent===warning));
-    assert(!nodes.some(n=>n.tag==='details'));
+    const customer=els.out.children[0];
+    assert.equal(customer.id,'customer-result');
+    assert.equal(customer.role,'alert');
+    assert(all(customer).some(n=>n.tag==='li'&&n.textContent===warning));
+    const diagnostics=nodes.find(n=>n.tag==='details');
+    assert(diagnostics);assert(!diagnostics.open);
+    assert.equal(diagnostics.children[0].tag,'summary');
+    assert(!all(diagnostics).some(n=>n.tag==='ol'));
     assert(!nodes.some(n=>n.textContent.includes('Testaa laturia')));
     assert(!nodes.some(n=>n.textContent.includes('tarvittaessa')));
     assert(els.status.textContent.includes('Turvallisuuskeskeytys'));

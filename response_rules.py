@@ -270,6 +270,66 @@ def input_problem_question(ticket):
     return None
 
 
+CLARIFICATION_QUESTIONS = {
+    'clarification:work_service': 'Mikä työpalvelu tai ohjelma ei avaudu, ja mikä tarkka virheilmoitus näkyy?',
+    'clarification:internet_vpn': 'Avautuvatko tavalliset verkkosivut samalla laitteella ilman VPN-yhteyttä, ja mitä etäyhteyden virheilmoituksessa lukee?',
+    'clarification:storage_mail': 'Missä ohjelmassa kumpikin tilailmoitus näkyy, ja mitä ilmoituksissa tarkalleen lukee?',
+}
+
+
+def is_app_clarification(question):
+    """Only these exact application questions may have no runbook source."""
+    return (isinstance(question, dict) and isinstance(question.get('id'), str) and
+            question['id'] in CLARIFICATION_QUESTIONS and
+            question == dict(id=question['id'], text=CLARIFICATION_QUESTIONS[question['id']], source_id=''))
+
+
+def clarification_questions(ticket):
+    """Ask for observations, independently of retrieval; establish no facts.
+
+    Quoted, hypothetical and negated claims are not evidence. Uncertainty is
+    used only to ask which work service is affected, never to select a guide.
+    """
+    text = re.sub(r'"[^"\n]*"|”[^”\n]*”|“[^”\n]*”|«[^»\n]*»', '', ticket)
+    if re.search(r'^\s*(?:kirjoita|käännä|kuvittele|selitä)\b', text, re.I):return []
+    statements = [m.group() for m in re.finditer(r'[^.!?\n]+[.!?]?', text)
+                  if '?' not in m.group() and not re.search(
+                      r'\b(?:jos|ehkä|luulen|mahtaako|mahdollisesti|ohjeessa|esimerkissä|lainaus|'
+                      r'kirjoita|käännä|kuvittele)\b', m.group(), re.I)]
+    observed = [clause for statement in statements for clause in _observed_clauses(statement)]
+    def matches(pattern, clause):return re.search(pattern, clause, re.I) is not None
+    internet = {internet_value(known_facts(clause)) for clause in observed}
+    remote_failure = any(matches(
+        r'\b(?:vpn(?:-yhteys)?|etäyhte\w*|etätyöyhte\w*)\s+ei\s+'
+        r'(?:(?:enää|nyt|lainkaan|ollenkaan)\s+)*(?:toimi|yhdist\w*|muodostu)\b', c)
+        for c in observed)
+    capacity = (r'\b(?:täynnä|täytty\w*|loppu|vähissä)\b|'
+                r'\b(?:ei|ettei)\s+(?:tallennu\w*\s+)?ole\s+tilaa\b')
+    def capacity_problem(clause):
+        return matches(capacity, clause) and not matches(
+            r'\b(?:ei|eikä)\s+ole\s+(?:(?:enää|nyt)\s+)?(?:täynnä|loppu|vähissä)\b', clause)
+    mail = r'\b(?:viestitila\w*|(?:sähkö)?postilaatik\w*)\b'
+    storage_problem = any(matches(r'\b(?:kone\w*|tietokone\w*|kannettava\w*|laite\w*|levy\w*|kiintolevy\w*)\b', c)
+                          and matches(r'\b(?:tallennu\w*|levy\w*|kiintolevy\w*)\b', c)
+                          and capacity_problem(c) and not matches(mail, c) for c in observed)
+    mail_problem = any(matches(mail, c) and capacity_problem(c) for c in observed)
+    work = r'(?:työasio\w*|työpalvel\w*|työsovell\w*|työohjelm\w*)'
+    work_failure = any(matches(
+        r'\ben\s+saa\s+'+work+r'\s+(?:\w+\s+){0,2}(?:auki|avautumaan)\b|'
+        r'\b'+work+r'\s+ei\s+(?:avaudu|toimi|käynnisty)\b', c) for c in observed)
+    uncertain_service = any(matches(r'\ben\s+(?:tiedä|ole\s+varma)\b', s) and matches(
+        r'\b(?:\w*ohjelm\w*|\w*palvel\w*|etäyhte\w*|vpn|sähköpost\w*)\b', s) for s in statements)
+    if remote_failure and True in internet and False in internet:
+        key = 'clarification:internet_vpn'
+    elif storage_problem and mail_problem:
+        key = 'clarification:storage_mail'
+    elif work_failure and uncertain_service:
+        key = 'clarification:work_service'
+    else:
+        return []
+    return [dict(id=key, text=CLARIFICATION_QUESTIONS[key], source_id='')]
+
+
 def compatible(guide,facts):
     """Negative constraints, also rechecked when assembling prefiltered sources."""
     values={f['field']:f['value'] for f in facts}

@@ -10,7 +10,56 @@ live-tilassa OpenAI valitsee soveltuvista lähteistä enintään yhden; sovellus
 kokoaa näytettävät vaiheet runbookista. Mallin omia ratkaisuvaiheita ei näytetä.
 Vaaratilanteen deterministinen `safety_stop` ohittaa haun ja mallikutsun.
 
-## PoC-tilanne 19.10.2026
+## Asiakasnäkymä ja IT-diagnostiikka
+
+Asiakasnäkymä näyttää vastauksen tilan, hyväksytyt ratkaisuvaiheet,
+tarkentavat kysymykset, jatkotoimet ja lähdeviitteet. Oletuksena suljettu
+**IT-asiantuntijan diagnostiikka** avataan otsikosta hiirellä tai näppäimistöllä.
+Se sisältää hakuehdokkaat, pisteet, soveltuvuus- ja hylkäysperusteet,
+tekstiosatunnukset, käsittelytilan, hakutavan, mallin käytön ja havaintojen
+tunnistusselitykset. Osion avaaminen ei lähetä uutta pyyntöä eikä rajaa käyttöoikeuksia.
+Turvallisuuskeskeytys ja ensiohjeet näkyvät heti asiakasnäkymässä.
+
+Sovellus voi kysyä havaintoja myös ilman valittua ratkaisulähdettä.
+Lähteettöminä hyväksytään vain kolme sovelluksen omaa, täsmällisesti sallittua
+tarkennuskysymystyyppiä:
+
+- Epäselvä työpalvelu tai ohjelma: mikä palvelu ei avaudu ja mikä virheilmoitus näkyy.
+- Ristiriitaiset internet- ja VPN-havainnot: toimivatko verkkosivut samalla laitteella
+  ilman VPN-yhteyttä ja mitä etäyhteyden virheilmoituksessa lukee.
+- Samanaikaiset laitteen ja viestitilan ongelmat: missä kumpikin tilailmoitus
+  näkyy ja mitä ilmoituksissa tarkalleen lukee.
+
+Nämä kysymykset eivät vahvista diagnoosia tai anna toimintavaltuuksia.
+Tunnistus perustuu rajattuihin tekstisääntöihin. Ratkaisuvaiheita ei näytetä
+ilman hyväksyttyä lähdettä. Turvallisuuskeskeytys ohittaa tarkennuskysymykset.
+
+## PoC-tilanne 20.10.2026
+
+Käyttäjä vahvisti Edge-kokeissa asiakasnäkymän, diagnostiikan avaamisen ja
+sulkemisen, VPN-hakudemon sekä turvonneen akun turvallisuuskeskeytyksen toimivan.
+Käyttäjän vahvistama oikea OpenAI-live-kutsu tuotti VPN-001:n kolme hyväksyttyä
+ratkaisuvaihetta ja tarkentavan kysymyksen. Tämä yksittäinen kokeilu ei ole
+kielimallin riippumaton laatuarviointi.
+
+Paikallisen kehitysympäristön automaattiset tarkistukset 20.10.2026:
+
+| Tarkistus | Tulos ja rajaus |
+|---|---|
+| Python | 248/248: julkaisukopion 174 testiä ja 74 paikallista lisätestiä |
+| JavaScript | 7/7 käyttöliittymätestimoduulia; kaksi tarvitsee yksityiset raporttisyötteet |
+| Uusi demoketju | 9/9 vaatimustarkistusta ja 24 renderöityä vastausta 12 demokortista |
+| Batch1-käyttöliittymätesti | 96/96 tallennetun demo-/mock-live-vastauksen renderöintiä |
+
+Automaattiset ajot eivät tehneet OpenAI-kutsuja. Python-ajot tehtiin
+kehitysympäristön Python 3.14.2:lla ja JavaScript-ajot Node.js v24.22.0:lla.
+Ne eivät ole uusi puhtaan asennuksen testi. Arviointiohjelman baseline-/holdout-
+aineistoja lataavaa testimoduulia ei ajettu. Paikallisen 248 testin kokonaisuuden
+sekä kahden raporttisyötteitä tarvitsevan JavaScript-moduulin toistaminen
+edellyttää myös julkaisemattomia aineistoja tai työkaluja. Käyttöliittymätestit
+käyttävät DOM-korviketta; niiden tulokset eivät korvaa visuaalista selainkoetta.
+
+## Aiempi PoC-tilanne 19.10.2026
 
 Käyttäjän ilmoittamassa live-tilan selainkokeessa VPN-001 näytti kolme
 ratkaisuvaihetta, tarkentavan kysymyksen ja lähdeviitteet. Oikean API-kutsun
@@ -41,10 +90,10 @@ tai Anacondan olemassaolo ei takaa, että `py -3.13` toimii. Aja komennot
 tavallisessa Windows PowerShellissä omalla käyttäjätunnuksellasi; Codexin
 rajoitetun suoritusympäristön tulos ei vastaa tavallisen PowerShellin verkkoyhteyttä.
 
-Lataa projektin hyväksytty julkaisukopio ja pura se omaan kansioon.
-Etärepositorion osoitetta ei ole vielä määritetty. Avaa PowerShell ja siirry
-kansioon, jossa `app.py` sijaitsee. Käytä uutta kansiota; älä korvaa olemassa
-olevaa virtuaaliympäristöä.
+Lataa projektin hyväksytty julkaisukopio
+[GitHub-repositoriosta](https://github.com/kauppinen1977-spec/ai-service-desk-assistant)
+ja pura se omaan kansioon. Avaa PowerShell ja siirry kansioon, jossa `app.py`
+sijaitsee. Käytä uutta kansiota; älä korvaa olemassa olevaa virtuaaliympäristöä.
 
 ```powershell
 py -3.13 --version
@@ -160,9 +209,11 @@ Remove-Variable avain -ErrorAction SilentlyContinue
 
 ## Julkaisuun rajatut testit
 
-Julkaisukopio sisältää seitsemän aineistoista riippumatonta Python-testimoduulia
-ja viisi JavaScriptin käyttöliittymätestimoduulia. Python-testit käyttävät
-synteettisiä upotuksia ja mockattuja vastauksia; ne eivät mittaa oikean mallin laatua.
+Julkaisukopio sisältää seitsemän yksityisistä arviointiaineistoista riippumatonta
+Python-testimoduulia, yhteensä 174 testiä. Paikallisessa 248 testin ajossa oli
+lisäksi 74 testiä, joiden tarvitsemia aineistoja tai työkaluja ei julkaista.
+Python-testit käyttävät synteettisiä upotuksia ja mockattuja vastauksia;
+ne eivät mittaa oikean mallin laatua.
 Testit voivat kirjoittaa omia väliaikaistiedostojaan, ja HTTP-testit käyttävät localhostia.
 
 ```powershell
@@ -177,16 +228,45 @@ Rajattu testivalikoima voidaan ajaa kummassakin seuraavasti:
 & .\.venv\Scripts\python.exe -B -c "import sys,unittest; sys.path.insert(0,'tests'); names=['test_search','test_response_rules','test_summary','test_http','test_safety_stop','test_hybrid_fallback','test_startup_applicability']; result=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromNames(names)); sys.exit(not result.wasSuccessful())"
 ```
 
-Valinnainen Node.js tarvitaan vain käyttöliittymätesteihin:
+Julkaisukopio sisältää seitsemän JavaScript-käyttöliittymätestimoduulia.
+Niistä viisi voidaan ajaa julkisilla tiedostoilla. Valinnainen Node.js tarvitaan
+vain näihin testeihin; npm-paketteja ei tarvitse asentaa. Aja projektin juuressa:
 
 ```powershell
+node --version
 node .\tests\ui_state_test.cjs
 node .\tests\ui_candidate_visibility_test.cjs
+node -e "const fs=require('node:fs'); const html=fs.readFileSync('index.html','utf8'); (async()=>{for(const name of ['ui_safety_stop_test','ui_startup_fact_test','ui_ticket_clear_test']){const result=await require('./tests/'+name+'.cjs')(html); console.log(name,result); if(result.failed || result.passed===false)process.exitCode=1;}})().catch(e=>{console.error(e);process.exitCode=1;});"
 ```
 
-JavaScript-testit käyttävät DOM-korviketta, eivät oikeaa selainta.
-Uudelleenkäytettävät safety-stop-, käynnistys- ja kentäntyhjennystestimoduulit
-ovat myös mukana; niiden vientifunktiot kuvataan julkaisuraportissa.
+Jos `node` ei löydy, avaa PowerShell uudelleen asennuksen jälkeen tai käytä
+oman Node.js-asennuksesi täydellistä polkua. Sovellus itse ei tarvitse Node.js:ää.
+JavaScript-testit käyttävät DOM-korviketta, eivät oikeaa selainta tai OpenAI API:a.
+
+### Kaksi yksityisiä raporttisyötteitä tarvitsevaa JavaScript-moduulia
+
+`ui_demo_chain_test.cjs` ja `ui_batch1_test.cjs` julkaistaan testikoodina,
+mutta niiden tarvitsemat paikalliset arviointiraportit eivät kuulu julkaisuun.
+Niiden puuttuminen julkaisukopiosta on tarkoituksellista. Raportteja,
+kehitysaineistoja, holdouteja tai baselinea ei lisätä Gitiin testien ajamista varten.
+
+Demoketjutesti saa argumenttina raportin, joka sisältää 12 demokorttia sekä
+niiden kontrolloidut ja sanahaun vastaukset. Testin poistumiskoodi 2 tarkoittaa
+epäonnistuneita vaatimustarkistuksia, ei onnistunutta ajoa. Batch1-testi on
+vientifunktio, jolle annetaan raportin `records`-lista (96 vastausta) ja HTML.
+Pelkkä `node tests/ui_batch1_test.cjs` ei suorita testejä.
+
+Vain paikallisessa kehitysympäristössä, jossa oikeat raportit ovat jo saatavilla,
+voit ajaa seuraavat esimerkit. Korvaa `<aikaleima>` oman raporttisi hakemistolla:
+
+```powershell
+node .\tests\ui_demo_chain_test.cjs '.\evaluation\demo_chain_runs\<aikaleima>\demo_observations.json'
+node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); require('./tests/ui_batch1_test.cjs')(report.records,fs.readFileSync('index.html','utf8')).then(result=>{console.log(result);if(result.passed===false)process.exitCode=1;}).catch(e=>{console.error(e);process.exitCode=1;});" '.\evaluation\batch1_runs\<aikaleima>\controlled_final_responses.json'
+```
+
+19.10.2026 päivätyt julkaisuraportit kuvaavat aiempaa rajausta, jossa nämä
+kaksi JavaScript-moduulia jätettiin pois. Tässä päivityksessä julkaistaan vain
+niiden testikoodi; yksityisten raporttien rajaus säilyy.
 
 ## Julkaisurajaus
 

@@ -1,7 +1,7 @@
 """Version 0.3 lähteisiin sidottu vastausketju."""
 import json,os,socket,urllib.request,urllib.error
 from pathlib import Path
-from response_rules import known_facts,applicable,compatible,applicability_evidence,input_problem_question,questions_for,steps_for,safety_sources,safety_step_numbers
+from response_rules import known_facts,applicable,compatible,applicability_evidence,input_problem_question,questions_for,steps_for,safety_sources,safety_step_numbers,clarification_questions,is_app_clarification
 from corpus import load_guides,vector_cache
 ROOT=Path(__file__).resolve().parent
 CORPUS='legacy20'
@@ -80,7 +80,10 @@ def validate(result,docs):
     if result['steps'] and not result['source_ids']:raise bad
     for q in result['questions']:
         if not isinstance(q,dict) or set(q)!={'id','text','source_id'} or not all(isinstance(v,str) for v in q.values()):raise bad
-        if q['source_id'] not in result['source_ids']:raise bad
+        if q['source_id']=='':
+            if (not is_app_clarification(q) or result['state'] not in ['insufficient','ambiguous','candidates'] or
+                    result['source_ids'] or result['steps'] or not result['needs_human']):raise bad
+        elif q['id'].startswith('clarification:') or q['source_id'] not in result['source_ids']:raise bad
     return result
 
 def parse_response(response):
@@ -185,6 +188,8 @@ def answer(ticket,mode='demo',backend='keyword'):
     elif mode=='demo':result=fallback('Hakuehdokkaat löytyivät. Ratkaisua ei ole valittu.','candidates');result['category']=search['category']
     else:
         result=call_model(ticket,docs);model_used=True
+    if result['state'] in ['insufficient','ambiguous','candidates'] and not result['source_ids'] and not result['questions']:
+        result['questions']=clarification_questions(ticket)
     validate(result,docs)
     source_ids=result['source_ids']
     return dict(version='0.3.1',mode=mode,model_used=model_used,result=result,search=search,known_facts=facts,candidates=candidates,

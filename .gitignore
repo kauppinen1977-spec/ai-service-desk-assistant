@@ -67,6 +67,8 @@
 !/tests/ui_safety_stop_test.cjs
 !/tests/ui_startup_fact_test.cjs
 !/tests/ui_ticket_clear_test.cjs
+!/tests/ui_demo_chain_test.cjs
+!/tests/ui_batch1_test.cjs
 !/tests/fixtures/
 /tests/fixtures/*
 !/tests/fixtures/v03_vpn_response.json

@@ -1,6 +1,7 @@
 <!doctype html><html lang="fi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Service Desk Assistant</title>
 <style>
 :root{color-scheme:light;--ink:#18364a;--muted:#526776;--border:#ccd7de;--accent:#16536a}*{box-sizing:border-box}body{font:16px/1.6 system-ui,sans-serif;background:#eef3f6;color:var(--ink);margin:0}main{max-width:1000px;margin:32px auto;padding:32px;background:#fff;border-radius:16px}h1{font-size:32px;line-height:1.2;margin:8px 0 12px}h2{font-size:23px;line-height:1.4}h3{font-size:18px}.tag,.small{font-size:14px;color:var(--muted)}.tag{letter-spacing:.06em}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}label{display:block;font-weight:600;margin-top:16px}select,textarea{width:100%;padding:11px;border:1px solid #7c8f9a;border-radius:6px;font:inherit;background:#fff;color:var(--ink)}textarea{min-height:145px;resize:vertical}button{font:inherit;padding:10px 16px;border-radius:6px;border:1px solid var(--border);background:#f3f6f8;color:var(--ink);cursor:pointer;margin:8px 6px 0 0}button.primary{background:var(--accent);color:white;border-color:var(--accent)}button:disabled{opacity:.55;cursor:wait}button:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #b26300;outline-offset:3px}#status{padding:12px 16px;background:#edf3f6;border-left:4px solid var(--accent);margin:20px 0}#status[data-state=error]{background:#fff0ee;border-color:#ac3225}#error{padding:12px 16px;border:1px solid #ba4b3f;background:#fff7f5}#error:empty{display:none}.panel{border:1px solid var(--border);border-radius:9px;padding:20px;margin-top:20px}.candidate{background:#f8fafb;padding:14px;margin:12px 0;border-left:3px solid #a2b4bf}.excluded{border-left-color:#ad5b32}.badge{display:inline-block;padding:2px 9px;background:#e7eff3;border-radius:4px;font-size:13px}li{margin:12px 0}.source{display:block;font-size:13px;color:#205875}.facts{background:#f1f6f3}details{margin-top:14px}summary{cursor:pointer;font-weight:600}a{color:#14546f}footer{border-top:1px solid var(--border);margin-top:28px;padding-top:16px;font-size:14px;color:var(--muted)}[hidden]{display:none!important}@media(max-width:650px){main{margin:0;padding:20px;border-radius:0}.grid{grid-template-columns:1fr;gap:0}h1{font-size:27px}}
+summary h2{display:inline;font-size:18px;margin:0}
 </style></head><body><main>
 <p class="tag">VILLE KAUPPINEN / PROTOTYYPPI 0.3.1</p><h1>AI Service Desk Assistant</h1><p>Hae tukiohjeita tai pyydä niihin perustuva ratkaisuehdotus.</p>
 <p class="small">Käytä vain kuvitteellisia tietoja. Sovellus ei tee muutoksia järjestelmiin.</p>
@@ -24,32 +25,40 @@ $('access').onclick=()=>example('Tarvitsen järjestelmänvalvojan oikeudet ohjel
 $('unknown').onclick=()=>example('Miten varaan lomamatkan?');
 function showError(message,help='',code=''){$('error').replaceChildren();text('strong',message,$('error'));if(help)text('p',help,$('error'));if(code)text('p','Virhekoodi: '+code,$('error'),'small');status('Käsittely epäonnistui. Ratkaisua ei muodostettu.','error');}
 function render(d){const out=$('out'),r=d.result;
- if(d.known_facts.length){const box=text('section','',out,'panel facts');text('h2','Jo ilmoittamasi tiedot',box);d.known_facts.forEach(f=>{
-  const stages={no_response:'Ei valoja tai käyntiääntä',power_no_display:'Virran merkkejä, oma näyttö pimeä',boot_stalled:'Käynnistys pysähtyy logoon tai ilmoitukseen'};
-  const labels={startup_stage:'Käynnistysvaihe: '+(stages[f.value]||'tarkennettava'),recovery_prompt:'Levyn salauksen palautuspyyntö',file_loss:'Tiedosto poistettu tai ylikirjoitettu',signed_in:'Kirjautuminen onnistuu',access_denied:'Palvelukohtainen käyttöesto'};
-  const label=f.field==='device_startup_unresolved'?'Tietokoneen käynnistymisongelma — käynnistysvaihe tarkistettava':f.field==='internet_working'?(f.value?'Internet toimii':'Internet ei toimi'):(labels[f.field]||'Ilmoitettu havainto');
-  text('p',label+' — tekstikohta: ”'+f.evidence+'”',box);
- });text('p','Tunnistus perustuu rajattuun tekstisääntöön. Epäselvää ilmaisua ei tulkita vahvistetuksi tiedoksi.',box,'small');}
- const box=text('section','',out,'panel');
+ const box=text('section','',out,'panel');box.id='customer-result';box.setAttribute('aria-labelledby','result-title');
  const titles={safety_stop:'Turvallisuuskeskeytys',suggestion:'Ratkaisuehdotus',needs_details:'Tarvitaan lisätietoja',insufficient:'Ohjeaineisto ei riitä',candidates:'Hakuehdokkaat — ratkaisua ei ole valittu',ambiguous:'Hakutulos on monitulkintainen'};
  if(r.state==='safety_stop'){box.setAttribute('role','alert');box.setAttribute('style','border:3px solid #ac3225');}
- text('h2',titles[r.state]||'Tulos',box);text('p',r.summary,box);
- if(r.state==='candidates')text('p','Hakuehdokkaista näytetään vain tunnistetiedot. Niitä ei ole vahvistettu ratkaisuksi eikä niiden toimintavaiheita näytetä.',box);
- if(r.source_ids.length)text('p','Vastauksen luokka: '+r.category,box,'badge');
+ text('h2',titles[r.state]||'Tulos',box).id='result-title';text('p',r.summary,box);
+ if(r.state==='candidates')text('p','Hakuehdokkaita ei ole vahvistettu ratkaisuksi eikä niiden toimintavaiheita näytetä. Ehdokkaiden tunnistetiedot ovat IT-asiantuntijan diagnostiikassa.',box);
  const visibleSteps=(r.state==='safety_stop'||(r.state==='suggestion'&&d.mode==='live'))?r.steps.filter(s=>r.source_ids.includes(s.source_id)&&d.sources.some(source=>source.id===s.source_id)):[];
  if(visibleSteps.length){const list=text('ol','',box);visibleSteps.forEach(s=>{const li=text('li',s.text,list);const link=text('a',s.source_id+' · alkuperäinen vaihe '+s.source_step+' · '+s.version,li,'source');link.href='#source-'+s.source_id;});}
  if(r.questions.length){text('h3','Tarkentavat kysymykset',box);const list=text('ul','',box);r.questions.forEach(q=>text('li',q.text,list));}
  if(['insufficient','ambiguous'].includes(r.state))text('p','Tarkenna ongelman aihetta tai siirrä pyyntö IT-tuen käsiteltäväksi. Soveltuvaa ratkaisua ei ole vahvistettu.',box);
  if(r.source_ids.length)text('p',r.state==='safety_stop'?'Ota yhteys IT-tukeen. Pyyntöä ei ole siirretty automaattisesti.':r.needs_human?'Jatkokäsittely tarvittaessa IT-tuessa.':'Ohjeen mukaiset tarkistukset käyttäjän arvioitavaksi.',box,'small');
  if(d.sources.length){text('h3','Vastauksessa käytetyt lähteet',box);d.sources.forEach(s=>{const p=text('p',s.id+' | '+s.title+' | '+s.version,box);p.id='source-'+s.id;});}
+ const diagnostics=text('details','',out,'panel');diagnostics.id='diagnostics';
+ const summary=text('summary','',diagnostics);text('h2','IT-asiantuntijan diagnostiikka',summary);
+ text('h3','Käsittelyn tiedot',diagnostics);
+ text('p','Käsittelytila: '+(d.mode==='live'?'OpenAI (live)':'Vain haku (demo)')+' | vastauksen tila: '+r.state,diagnostics);
+ const backends={keyword:'Sanahaku',vector:'Vektorihaku'};
+ text('p','Hakutapa: '+(backends[d.search.backend]||'Ei ilmoitettu')+' | mallin käyttö: '+(d.model_used?'OpenAI-kutsu tehty':'OpenAI-kutsua ei tehty'),diagnostics);
+ if(r.state==='safety_stop')text('p','Haku ohitettiin turvallisuuskeskeytyksen vuoksi.',diagnostics);
+ text('p','Vastauksen luokka: '+r.category,diagnostics,'badge');
+ if(d.known_facts.length){const facts=text('section','',diagnostics,'facts');text('h3','Jo ilmoittamasi tiedot — tunnistuksen perusteet',facts);d.known_facts.forEach(f=>{
+  const stages={no_response:'Ei valoja tai käyntiääntä',power_no_display:'Virran merkkejä, oma näyttö pimeä',boot_stalled:'Käynnistys pysähtyy logoon tai ilmoitukseen'};
+  const labels={startup_stage:'Käynnistysvaihe: '+(stages[f.value]||'tarkennettava'),recovery_prompt:'Levyn salauksen palautuspyyntö',file_loss:'Tiedosto poistettu tai ylikirjoitettu',signed_in:'Kirjautuminen onnistuu',access_denied:'Palvelukohtainen käyttöesto'};
+  const label=f.field==='device_startup_unresolved'?'Tietokoneen käynnistymisongelma — käynnistysvaihe tarkistettava':f.field==='internet_working'?(f.value?'Internet toimii':'Internet ei toimi'):(labels[f.field]||'Ilmoitettu havainto');
+  text('p',label+' — tekstikohta: ”'+f.evidence+'”',facts);
+ });text('p','Tunnistus perustuu rajattuun tekstisääntöön. Epäselvää ilmaisua ei tulkita vahvistetuksi tiedoksi.',facts,'small');}
  if(r.state!=='safety_stop'&&d.candidates.length){
-  const section=text('section','',out,'panel');
-  text('h2','Haun ehdokkaat — ei toimintaohjeita',section);
+  const section=text('section','',diagnostics);
+  text('h3','Haun ehdokkaat — ei toimintaohjeita',section);
   text('p','Haun ehdottama luokka: '+d.search.category+'. Hakujärjestys ei osoita ohjeen oikeellisuutta. Pisteet eivät ole oikeellisuuden todennäköisyyksiä.',section,'small');
   d.candidates.forEach((c,index)=>{
    const entry=text('div','',section,'candidate'+(c.eligible?'':' excluded'));
    text('strong',c.guide_id+' — '+c.title,entry);
    text('p',c.eligible?'Hakuehdokas — läpäisi rajatut soveltuvuustarkistukset; tämä merkintä ei vahvista ratkaisua.':'Ei hyväksytä vastauksen lähteeksi: '+c.exclusion_reason,entry);
+   if(c.eligible&&c.eligibility_evidence) c.eligibility_evidence.forEach(f=>text('p','Soveltuvuusnäyttö: '+f.field+' = '+f.value+' — tekstikohta: ”'+f.evidence+'”',entry,'small'));
    text('p','Sijoitus '+(index+1)+' | versio '+c.version+' | '+(c.retrieval_method==='lexical_fallback'?'Leksikaalinen varahaku — ei vektoripistettä':'pisteet '+c.score)+(c.chunk_id?' | tekstiosa '+c.chunk_id:''),entry,'small');
   });
  }
@@ -62,7 +71,7 @@ $('send').onclick=async()=>{const submitted=revision,submittedTicket=$('ticket')
  const context=text('section','',$('out'),'panel');text('p','Käsitelty tiketti: '+submittedTicket,context);
  text('p','Jos vastaat tarkentavaan kysymykseen, palauta alkuperäinen pyyntö alla olevalla painikkeella ja lisää havaintosi.',context,'small');
  const edit=text('button','Täydennä tätä pyyntöä',context);edit.onclick=()=>example(submittedTicket);
- $('ticket').value='';status(d.result.state==='safety_stop'?'Turvallisuuskeskeytys. Noudata ensiohjetta ja ota yhteys IT-tukeen. OpenAI-kutsua ei tehty.':d.model_used?'OpenAI-käsittely valmis. Tarkista ehdotus ja sen lähteet.':d.mode==='demo'?'Haku valmis. Ratkaisua ei ole valittu eikä OpenAI-kutsua tehty.':'Soveltuvaa ohjetta ei vahvistettu. OpenAI-kutsua ei tehty.');
+ $('ticket').value='';status(d.result.state==='safety_stop'?'Turvallisuuskeskeytys. Noudata ensiohjetta ja ota yhteys IT-tukeen.':d.model_used?'Käsittely valmis. Tarkista vastaus ja sen lähteet.':d.mode==='demo'?'Haku valmis. Ratkaisua ei ole valittu.':'Soveltuvaa ohjetta ei vahvistettu.');
  }catch(e){if(submitted===revision)showError(e.message,'Tarkista, että sovelluksen käynnistysikkuna on auki, ja yritä uudelleen.');}
  finally{b.disabled=false;$('out').setAttribute('aria-busy','false');}};
 fetch('/health').then(r=>r.json()).then(d=>{$('connection').textContent=d.api_key_available?'API-avain on asetettu. Sen toimivuus varmistuu vasta kutsulla.':'API-avainta ei ole asetettu. Vain haku toimii; OpenAI-tila tarvitsee avaimen.';}).catch(()=>{$('connection').textContent='Palvelimen tilaa ei voitu tarkistaa.';});
