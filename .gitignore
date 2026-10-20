@@ -1,6 +1,7 @@
 # Julkaisurajaus: vain alla hyväksytyt tiedostot. Uudet tiedostot jäävät oletuksena pois.
 /*
 !/.gitignore
+!/.gitattributes
 !/.env.example
 !/README.md
 !/app.py
