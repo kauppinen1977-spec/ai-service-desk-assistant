@@ -22,12 +22,14 @@ class Handler(BaseHTTPRequestHandler):
         else:self.reply(404,'{}')
     def do_POST(self):
         if self.path!='/api/answer' and not self.path.startswith('/api/memory/'):return self.reply(404,'{}')
-        if self.headers.get('X-Desk-Token')!=TOKEN:return self.error_reply(DeskError('Sivun istunto on vaihtunut.','session_expired',403,'Päivitä sivu ja yritä uudelleen.'))
         try:
             size=int(self.headers.get('Content-Length','0'))
             # Finnish non-ASCII fields may expand when JSON is escaped.
             if not 0<size<=(120000 if self.path.startswith('/api/memory/') else 20000):raise DeskError('Pyyntö on liian suuri tai tyhjä.')
-            obj=json.loads(self.rfile.read(size))
+            # Consume the bounded body before rejecting: unread POST data can reset Windows sockets.
+            body=self.rfile.read(size)
+            if self.headers.get('X-Desk-Token')!=TOKEN:raise DeskError('Sivun istunto on vaihtunut.','session_expired',403,'Päivitä sivu ja yritä uudelleen.')
+            obj=json.loads(body)
             if not isinstance(obj,dict):raise DeskError('Virheellinen pyyntö.')
             if self.path.startswith('/api/memory/'):
                 from solution_memory import dispatch

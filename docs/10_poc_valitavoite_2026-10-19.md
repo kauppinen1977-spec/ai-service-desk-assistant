@@ -158,3 +158,90 @@ Tässä dokumentointivaiheessa ei tehty API-kutsuja, uusia arviointiajoja,
 koodimuutoksia tai runbook-muutoksia. Jäädytettyä
 `evaluation/baselines/batch1-30-20261019-v1`-versiota ei muutettu.
 Riippumatonta holdout B:tä ei avattu eikä batch2-erää aloitettu.
+
+## Ratkaisumuistin lisätestaus – 24.10.2026
+
+Tämä lisäys koskee erillistä ratkaisumuistin worktreetä, haaraa
+`kehitys/ratkaisumuisti` ja lähtöcommittia `d643fba`. Vanhan projektin
+`main`-työpuuta ei muutettu. Testiympäristö on Windows, worktreen oma
+Python 3.13.15 -virtuaaliympäristö ja paikallinen osoite
+`http://127.0.0.1:8502/memory` (`batch1`, sanahaku).
+
+### Käyttäjän ilmoittama selainkoe: Kajo77
+
+Käyttäjä ilmoitti seuraavat tulokset 24.10.2026. Nämä ovat käyttäjän
+selainhavaintoja, eivät automaation suorittama selainkoe.
+
+| Vaihe | Havaittu tulos | Tulos |
+|---|---|---|
+| Luonnoksen tallennus ja haku | Kajo77-luonnos ei löytynyt hausta | Hyväksytty |
+| Vahvistus ja haku | Vahvistettu ratkaisu löytyi ja näytti oikean tekstin | Hyväksytty |
+| Käytöstä poisto ja haku | Osuma katosi hakutuloksista | Hyväksytty |
+| Historia käytöstä poiston jälkeen | Tietue säilyi historiassa | Hyväksytty |
+
+Selainkoe vahvistaa tämän tapauksen työnkulun. Käyttäjän ilmoitus ei sisällä
+uudelleenkäynnistyksen jälkeistä selainhavaintoa eikä ratkaisun sanatarkkaa
+sisältöä; niitä ei päätellä tässä raportissa.
+
+### Paikallinen palvelin- ja uudelleenkäynnistystesti
+
+Aiemmassa saman päivän paikallisessa HTTP-kokeessa luotiin erillinen
+kuvitteellinen `PAIKALLISTESTI 20261024: VPN E42` -tietue. Oikean
+palvelinprosessin uudelleenkäynnistyksen jälkeen vahvistetun tietueen sisältö,
+vahvistustiedot ja hakukelpoisuus säilyivät. Käytöstä poiston ja toisen
+uudelleenkäynnistyksen jälkeen tietue sekä poistamisen syy säilyivät
+historiassa, mutta tietue ei palautunut hakuun. SQLite-eheystarkistus oli `ok`.
+Vanha istuntotunniste hylättiin uudelleenkäynnistyksen jälkeen 403-vastauksella;
+selain on päivitettävä ennen jatkamista.
+
+Tämä on paikallisen palvelimen toimintotesti, ei selaimessa tehty
+uudelleenkäynnistyskoe. Paikallinen tarkistustulos on tallessa Gitin
+ulkopuolella tiedostossa `data/local-memory-check.json`; tietokantaa tai
+sen sisältöä ei liitetä tähän raporttiin.
+
+### Windows-korjaus ja regressiotestit
+
+Alkuperäisessä testiajossa 190/192 Python-testiä läpäisi. Kahdessa
+istuntotunnisteen hylkäystestissä Windowsin yhteys katkesi virheeseen
+`WinError 10053` ennen odotettua HTTP 403 -vastausta. Palvelin vastasi
+lukematta ensin POST-pyynnön sisältöä.
+
+`app.py` tarkistaa nyt ensin sisältöpituuden nykyisellä kokorajalla, lukee
+rajatun sisällön ja tarkistaa sitten istuntotunnisteen. Väärällä tai
+puuttuvalla tunnisteella sisältöä ei jäsennetä JSONiksi eikä sovelluslogiikkaa
+suoriteta. Ylisuuri pyyntö hylätään ennen sisällön lukemista; tällöin
+kokorajan 400-virhe on ensisijainen myös väärällä tunnisteella.
+
+`tests/test_http.py` sisältää kaksi uutta regressiotestiä:
+
+- Väärä ja puuttuva istuntotunniste: vastausta ei saa kirjoittaa ennen
+  sisällön kuluttamista. Tarkistus kattaa alkuperäisen vastausreitin ja kaikki
+  kuusi ratkaisumuistin toimintoa. Virheellinen JSON ei saa ohittaa
+  istuntotarkistusta, eikä vastaus- tai ratkaisumuistilogiikka saa käynnistyä.
+- Molempien reittiperheiden kokorajat: ylisuurta pyyntöä ei lueta eikä
+  välitetä sovelluslogiikalle.
+
+Testi käyttää oikeaa HTTP-vastauskoodia muistivirroilla ja havaitsee
+lukemattoman sisällön deterministisesti. Se ei riipu Windowsin TCP-katkoksen
+ajoituksesta. Uusi 403-regressiotesti epäonnistuu lähtöcommitin käsittelijällä
+ja läpäisee korjatulla käsittelijällä.
+
+### Tämän muutoksen automaattinen tarkistus
+
+Tarkistuskomennot worktreen juuressa:
+
+```powershell
+& .\.venv\Scripts\python.exe -B -m unittest discover -s tests
+node .\tests\ui_memory_test.cjs
+git diff --check
+```
+
+Tulokset: **194/194 Python-testiä hyväksytty**, ratkaisumuistin
+JavaScript-käyttöliittymätesti hyväksytty ja `git diff --check` hyväksytty.
+JavaScript-testi käyttää DOM-korviketta. API-ehdotusten testit käyttävät
+mockattuja vastauksia; oikeita API-kutsuja ei tehty. Testiprosessin
+API-avain poistettiin ympäristöstä ja mallien verkkolataukset estettiin.
+
+Tämä työ ei muuta `main`-haaraa eikä lisää tietokantaa, lokeja tai paikallista
+virtuaaliympäristöä Gitiin. Oikea API-koe, upotusmallin hakulaadun arviointi ja
+uudelleenkäynnistyksen jälkeinen selainkoe jäävät erikseen tehtäviksi.

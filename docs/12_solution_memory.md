@@ -78,9 +78,16 @@ Uuden näkymän JavaScript-testi käyttää DOM-korviketta ja tarkistaa työnkul
 erillisen API-luvan, automaattitallennuksen puuttumisen, tekstinä renderöinnin
 ja vanhentuneen hakuvastauksen sivuuttamisen. Se ei ole oikea selainkoe.
 
+24.10.2026 käyttäjän Kajo77-selainkoe hyväksyi luonnoksen rajaamisen pois
+hausta, vahvistetun ratkaisun löytymisen oikealla tekstillä sekä käytöstä
+poiston ja historian säilymisen. Erillinen paikallinen palvelintesti hyväksyi
+säilymisen oikeiden palvelinprosessin uudelleenkäynnistysten yli.
+Windowsin 403-vastauksen korjaus ja regressiotestit on kuvattu
+[projektin testiraportin ratkaisumuistilisäyksessä](10_poc_valitavoite_2026-10-19.md#ratkaisumuistin-lisätestaus--24102026).
+
 Ennen valmista PoC-esittelyä tarvitaan vielä:
 
-- oikea Windows-/selainkoe tallennuksesta uudelleenkäynnistykseen ja poistamiseen
+- uudelleenkäynnistyksen jälkeinen säilymisen tarkistus myös oikeassa selaimessa
 - erikseen käynnistetty API-koe kuvitteellisella ongelmalla
 - laadukas ympäristökohtainen tapausaineisto ja vertailu tavalliseen tekstihakuun
 - erillinen arviointiaineisto, myös vastausta vailla olevat ja harhaanjohtavat tapaukset.
