@@ -249,10 +249,16 @@ def suggest(obj):
     """Explicit cloud request; the answer remains unverified and is never auto-saved."""
     import desk
     problem = text(obj.get('problem'), 'Ongelman kuvaus', 4000, 5)
-    environment = text(obj.get('environment'), 'Ympäristö', 2000)
+    environment = obj.get('environment', '')
+    if not isinstance(environment, str) or len(environment.strip()) > 2000:
+        raise DeskError('Vapaa ympäristökuvaus: enintään 2000 merkkiä.')
+    environment = environment.strip()
+    declared = search_filters({key: obj.get(key) for key in ENVIRONMENT_FIELDS})
+    input_fields = {'problem': problem, 'environment': environment}
+    input_fields.update({key: value for key, value in declared.items() if value})
     if obj.get('send_to_api') is not True:
         raise DeskError('Valitse erikseen tietojen lähettäminen tekoälypalvelulle.')
-    stopped = safety_check(problem + '\n' + environment)
+    stopped = safety_check('\n'.join(input_fields.values()))
     if stopped:
         return stopped
     schema = {'type': 'object', 'additionalProperties': False,
@@ -265,7 +271,7 @@ def suggest(obj):
                'epävarmuudet. Älä väitä ratkaisua testatuksi. Älä keksi organisaation asetuksia, lähteitä '
                'tai hyväksyntöjä. Älä ehdota tietoturvan ohittamista tai vaarallisia laitteistotoimia. '
                'Jos et voi ehdottaa perusteltua ratkaisua, kerro solution-kentässä tarvittavat lisätiedot.',
-               'input': json.dumps({'problem': problem, 'environment': environment}, ensure_ascii=False),
+               'input': json.dumps(input_fields, ensure_ascii=False),
                'text': {'format': {'type': 'json_schema', 'name': 'solution_draft',
                                    'strict': True, 'schema': schema}}}
     result = desk.request_model(payload)
@@ -278,6 +284,8 @@ def suggest(obj):
 
 
 def dispatch(action, obj):
+    if action == 'suggest':
+        return suggest(obj)
     memory = Memory()
     if action == 'list':
         return {'records': memory.list()}
@@ -289,6 +297,4 @@ def dispatch(action, obj):
         return {'record': memory.transition(obj, 'retired')}
     if action == 'search':
         return memory.search(obj.get('query'), obj.get('backend', 'keyword'), filters=obj.get('filters'))
-    if action == 'suggest':
-        return suggest(obj)
     raise DeskError('Tuntematon ratkaisumuistin toiminto.', 'not_found', 404)

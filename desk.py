@@ -3,6 +3,7 @@ import json,os,socket,urllib.request,urllib.error
 from pathlib import Path
 from response_rules import known_facts,applicable,compatible,applicability_evidence,input_problem_question,questions_for,steps_for,safety_sources,safety_step_numbers,clarification_questions,is_app_clarification
 from corpus import load_guides,vector_cache
+from api_settings import settings,validate_key
 ROOT=Path(__file__).resolve().parent
 CORPUS='legacy20'
 CATEGORIES=['verkko','käyttöoikeudet','sähköposti','laitteet','muu']
@@ -99,8 +100,6 @@ def parse_response(response):
     except ValueError:raise DeskError('Mallilta ei saatu kelvollista JSON-vastausta.','api_format',502) from None
 
 def call_model(ticket,docs,opener=None):
-    key=os.environ.get('OPENAI_API_KEY','').strip()
-    if not key:raise DeskError('OPENAI_API_KEY puuttuu.','missing_api_key',400,'Aseta API-avain samaan PowerShell-istuntoon ja käynnistä sovellus uudelleen. Älä lähetä avainta keskusteluun.')
     facts=known_facts(ticket)
     payload={'model':os.environ.get('OPENAI_MODEL','gpt-4.1-mini'),'store':False,'max_output_tokens':700,
       'instructions':('Olet kuvitteellisen organisaation IT-tuen avustaja. Vastaa suomeksi. '
@@ -117,25 +116,96 @@ def call_model(ticket,docs,opener=None):
 
 def request_model(payload,opener=None):
     """Shared transport; callers validate the returned object for their own workflow."""
-    key=os.environ.get('OPENAI_API_KEY','').strip()
-    if not key:raise DeskError('OPENAI_API_KEY puuttuu.','missing_api_key',400,'Aseta API-avain palvelimen ympäristömuuttujaan ja käynnistä sovellus uudelleen.')
-    req=urllib.request.Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
+    key,model,revision=settings.snapshot()
+    if not key:raise DeskError('API-avain puuttuu.','missing_api_key',400,'Avaa ratkaisumuistin API-asetukset, liitä avain ja paina Ota käyttöön. Palvelinta ei tarvitse käynnistää uudelleen.')
+    validate_key(key)
+    payload=dict(payload,model=model)
     try:
-        with (opener or urllib.request.urlopen)(req,timeout=45) as resp:
+        req=urllib.request.Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
+        with (opener or open_model)(req,timeout=45) as resp:
             raw=resp.read(1000001)
-            if len(raw)>1000000:raise DeskError('Mallipalvelun vastaus oli liian suuri.','api_format',502)
+            if len(raw)>1000000:
+                settings.record(revision,'api_format')
+                raise DeskError('Mallipalvelun vastaus oli liian suuri.','api_format',502,'Yritä myöhemmin uudelleen tai ilmoita virhekoodi ylläpitäjälle. Lomakkeen teksti säilyy.')
             response=json.loads(raw)
     except urllib.error.HTTPError as e:
-        mapping={401:('API-avain ei kelpaa.','invalid_api_key','Aseta voimassa oleva avain samaan PowerShell-istuntoon ja käynnistä sovellus uudelleen.'),
-          403:('Mallin käyttö on estetty.','api_forbidden','Tarkista projektin ja mallin käyttöoikeudet.'),
-          429:('API:n käyttöraja tai saldo ylittyi.','api_limit','Tarkista API-tilin saldo ja käyttörajat. Uutta kutsua ei tehdä automaattisesti.')}
-        message,code,help_text=mapping.get(e.code,('Mallipalvelu palautti virheen.','api_unavailable','Yritä myöhemmin uudelleen.'))
-        raise DeskError(message,code,502,help_text) from None
-    except (TimeoutError,socket.timeout):raise DeskError('Mallipalvelun vastausta ei saatu 45 sekunnissa.','api_timeout',504,'Yritä uudelleen. Mahdollinen palvelussa jo käsitelty kutsu voi silti aiheuttaa kulun.') from None
-    except urllib.error.URLError:raise DeskError('Mallipalveluun ei saatu yhteyttä.','api_connection',502,'Tarkista internetyhteys ja palomuuri. Paikallinen hakutila toimii ilman API:a.') from None
-    except (OSError,UnicodeError):raise DeskError('Mallipalvelun yhteys tai asetukset epäonnistuivat.','api_connection',502) from None
-    except ValueError:raise DeskError('Mallipalvelu palautti virheellisen JSON-vastauksen.','api_format',502) from None
-    return parse_response(response)
+        error=provider_error(e)
+        settings.record(revision,error.code)
+        raise error from None
+    except (TimeoutError,socket.timeout):
+        settings.record(revision,'api_timeout')
+        raise DeskError('Mallipalvelun vastausta ei saatu 45 sekunnissa.','api_timeout',504,'Tarkista yhteys ja odota ennen uutta yritystä. Palvelussa jo käsitelty kutsu voi silti aiheuttaa kulun. Pyyntöä ei toisteta automaattisesti.') from None
+    except urllib.error.URLError as e:
+        timed_out=isinstance(e.reason,(TimeoutError,socket.timeout))
+        code='api_timeout' if timed_out else 'api_connection'
+        settings.record(revision,code)
+        raise DeskError('Mallipalvelun yhteys aikakatkaistiin.' if timed_out else 'Mallipalveluun ei saatu yhteyttä.',code,504 if timed_out else 502,'Tarkista internetyhteys, välityspalvelin, TLS-varmenteet ja palomuuri. Älä vaihda avainta verkkovirheen vuoksi. Paikallinen haku toimii ilman API:a.') from None
+    except (OSError,UnicodeError):
+        settings.record(revision,'api_connection')
+        raise DeskError('Mallipalvelun yhteys tai asetukset epäonnistuivat.','api_connection',502,'Tarkista verkkoyhteys ja API-asetusten syöttömuoto. Älä poista TLS-varmenteiden tarkistusta.') from None
+    except ValueError:
+        settings.record(revision,'api_format')
+        raise DeskError('Mallipalvelu palautti virheellisen JSON-vastauksen.','api_format',502,'Yritä myöhemmin uudelleen. Avaimen vaihtaminen ei korjaa vastausmuotoa.') from None
+    try:result=parse_response(response)
+    except DeskError as error:
+        settings.record(revision,error.code)
+        raise
+    settings.record(revision,'success')
+    return result
+
+
+def provider_error(error):
+    """Inspect only bounded machine codes; provider messages may contain secrets."""
+    try:
+        raw=error.read(65537)
+        obj=json.loads(raw) if len(raw)<=65536 else {}
+        detail=obj.get('error',{}) if isinstance(obj,dict) else {}
+        code=detail.get('code') if isinstance(detail,dict) else None
+        kind=detail.get('type') if isinstance(detail,dict) else None
+    except (OSError,ValueError,UnicodeError):code=kind=None
+    finally:error.close()
+    result=classify_provider_error(error.code,code,kind)
+    result.upstream_status=error.code
+    # Retain only a known code. Never return arbitrary provider strings.
+    allowed=('invalid_api_key','model_not_found','model_not_allowed','model_access_denied',
+             'insufficient_quota','credit_balance_exhausted','billing_hard_limit_reached','billing_not_active',
+             'organization_spend_limit_exceeded','project_spend_limit_exceeded','organization_usage_limit_exceeded',
+             'insufficient_permissions','permission_denied','ip_not_authorized','organization_restricted','organization_not_found')
+    result.provider_code=code if isinstance(code,str) and code in allowed else 'unrecognized'
+    return result
+
+
+def classify_provider_error(status,code,kind):
+    # Values are compared, never interpolated into responses or logs.
+    if code=='invalid_api_key':
+        return DeskError('Palvelu hylkäsi API-avaimen.','invalid_api_key',502,'Avaa API-asetukset ja liitä voimassa oleva OpenAI API -avain oikeasta projektista. Tarkista, ettei avainta ole peruttu. Paina Ota käyttöön ja yritä itse uudelleen.')
+    if code in ('model_not_found','model_not_allowed','model_access_denied'):
+        return DeskError('Valittu malli ei ole käytettävissä tässä projektissa.','api_model_access',502,'Tarkista mallin tunniste ja projektin mallioikeudet. Voit vaihtaa mallin API-asetuksissa syöttämällä avaimen uudelleen. Sama virhe voi tarkoittaa puuttuvaa mallia tai käyttöoikeutta.')
+    if code in ('insufficient_quota','credit_balance_exhausted','billing_hard_limit_reached','billing_not_active','organization_spend_limit_exceeded','project_spend_limit_exceeded','organization_usage_limit_exceeded') or kind=='insufficient_quota':
+        return DeskError('API-projektin saldo tai käyttöbudjetti ei riitä.','api_billing',502,'Tarkista API-projektin laskutus, saldo ja käyttöbudjetit. ChatGPT-tilaus ei korvaa API-laskutusta. Korjaa saldo tai raja ennen uutta yritystä; avaimen vaihto ei lisää saldoa.')
+    if status==403 or code in ('insufficient_permissions','permission_denied','ip_not_authorized','organization_restricted','organization_not_found'):
+        return DeskError('API-pyynnön käyttöoikeus on estetty.','api_forbidden',502,'Tarkista API-avaimen Responses-kirjoitusoikeus, projektijäsenyys ja organisaation/IP-osoitteen käyttörajoitukset. Pyydä projektin ylläpitäjää korjaamaan oikeudet.')
+    if status==401:
+        return DeskError('API-tunnistautuminen epäonnistui.','api_authentication',502,'Tarkista API-asetusten avain sekä sen projekti- ja organisaatiojäsenyys. Pelkkä HTTP 401 ei yksilöi syytä vääräksi avaimeksi. Ota tarvittaessa yhteys projektin ylläpitäjään.')
+    if status==429:
+        return DeskError('API-palvelun kutsuraja ylittyi.','api_rate_limit',502,'Odota ennen uutta yritystä ja tarkista projektin kutsurajat. Jos palvelu ei yksilöinyt syytä, tarkista myös saldo. Pyyntöä ei toisteta automaattisesti.')
+    if status==404:
+        return DeskError('API-resurssia ei löytynyt.','api_not_found',502,'Tarkista mallin tunniste ja saatavuus projektissasi sekä API-osoite. Avainta ei todettu virheelliseksi.')
+    if status in (400,422):
+        return DeskError('API-palvelu hylkäsi pyynnön rakenteen.','api_bad_request',502,'Tarkista mallin yhteensopivuus Responses-rajapinnan ja JSON-skeeman kanssa. Ilmoita virhekoodi ylläpitäjälle; avaimen vaihto ei korjaa pyyntörakennetta.')
+    if 300<=status<400:
+        return DeskError('API-palvelu yritti ohjata pyynnön toiseen osoitteeseen.','api_redirect',502,'Pyyntöä ei seurattu avaimen suojaamiseksi. Tarkista verkon välityspalvelin ja API-osoite ylläpitäjän kanssa.')
+    return DeskError('API-palvelu palautti palveluvirheen.','api_unavailable',502,'Odota ja yritä myöhemmin uudelleen. Jos virhe toistuu, ilmoita virhekoodi ylläpitäjälle. Avainta ei todettu virheelliseksi.')
+
+
+class NoAPIRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def open_model(request, timeout):
+    # urllib would otherwise forward the Authorization header on redirects.
+    return urllib.request.build_opener(NoAPIRedirect()).open(request,timeout=timeout)
 
 def safety_answer(ids,gs,facts,mode,backend):
     docs=[next(g for g in gs if g['id']==id) for id in ids]

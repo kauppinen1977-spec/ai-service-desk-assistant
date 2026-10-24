@@ -10,16 +10,18 @@ const reviewLabel='Puuttuvien tietojen vuoksi tarkistettavat ehdokkaat';
 const clone=value=>JSON.parse(JSON.stringify(value));
 function all(node){return [node,...node.children.flatMap(all)];}
 function createHarness(initial=[]){
- const elements={},nodes=[],calls=[],confirmations=[],prompts=[],confirmText=[],promptDefaults=[],faults=new Map(),overrides=new Map();let serial=0,held=null,searchResult=null;
+ const elements={},nodes=[],calls=[],confirmations=[],prompts=[],confirmText=[],promptDefaults=[],faults=new Map(),overrides=new Map();let serial=0,held=null,heldAction='search',searchResult=null;
  const document={activeElement:null,getElementById:id=>elements[id],createElement:tag=>element(tag),querySelectorAll:()=>nodes.filter(e=>e.isConnected&&['button','input','textarea','select'].includes(e.tag))};
  function connected(e,value){e.isConnected=value;for(const child of e.children)connected(child,value);}
- function element(tag){const e={tag,children:[],parent:null,attributes:{},_text:'',value:'',checked:false,disabled:false,hidden:false,open:false,tabIndex:-1,isConnected:false,handlers:{},
-  append(...items){for(const child of items){child.parent=this;this.children.push(child);connected(child,this.isConnected);}},
+ function element(tag){const e={tag,children:[],parent:null,attributes:{},style:{},_text:'',value:'',checked:false,disabled:false,hidden:false,open:false,tabIndex:-1,isConnected:false,handlers:{},selectionStart:0,selectionEnd:0,scrollTop:0,
+  append(...items){for(const child of items){if(child.parent)child.parent.children=child.parent.children.filter(item=>item!==child);child.parent=this;this.children.push(child);connected(child,this.isConnected);}},
   replaceChildren(...items){for(const child of this.children){child.parent=null;connected(child,false);}this.children=[];this._text='';this.append(...items);},
-  addEventListener(name,handler){this.handlers[name]=handler;},setAttribute(name,value){this.attributes[name]=String(value);},getAttribute(name){return this.attributes[name]??null;},
-  focus(){if(!this.isConnected||this.disabled)return;for(let p=this;p;p=p.parent)if(p.hidden)return;document.activeElement=this;},
-  reset(){for(const key of fields)elements[key].value='';elements.consent.checked=false;}
- };Object.defineProperty(e,'textContent',{get(){return this._text;},set(value){this.replaceChildren();this._text=String(value);}});nodes.push(e);return e;}
+  addEventListener(name,handler){const previous=this.handlers[name];this.handlers[name]=event=>{previous?.(event);return handler(event);};},setAttribute(name,value){this.attributes[name]=String(value);},getAttribute(name){return this.attributes[name]??null;},
+  focus(){if(!this.isConnected||this.disabled||!visible(this))return;document.activeElement=this;},
+  reset(){for(const key of fields)elements[key].value='';elements.consent.checked=false;},
+  getClientRects(){return visible(this)?[{}]:[];},getBoundingClientRect(){return {height:parseFloat(this.style.height)||310};},
+  setSelectionRange(start,end){this.selectionStart=start;this.selectionEnd=end;},showModal(){this.open=true;},close(){this.open=false;this.handlers.close?.();}
+ };Object.defineProperty(e,'scrollHeight',{get(){return Math.max(288,e.value.split('\n').length*24)+20;}});Object.defineProperty(e,'textContent',{get(){return this._text;},set(value){this.replaceChildren();this._text=String(value);}});nodes.push(e);return e;}
  const root=element('root');root.isConnected=true;const stack=[root];
  const markup=html.replace(/<style>[\s\S]*?<\/style>/,'').replace(/<script>[\s\S]*?<\/script>/,'');
  const voids=new Set(['meta','input','br','hr','option','link']);
@@ -33,19 +35,21 @@ function createHarness(initial=[]){
   }if(token.trim())stack.at(-1)._text+=token.trim();
  }
  let rows=clone(initial);const response=(value,ok=true)=>({ok,json:async()=>clone(value)});
- const context={document,window:{confirm:text=>{confirmText.push(text);return confirmations.length?confirmations.shift():true;},prompt:(message,initial='')=>{promptDefaults.push(initial);return prompts.length?prompts.shift():(initial||'Kuvitteellinen poistamisen syy');}},fetch:async(url,options)=>{
+ const context={document,getComputedStyle:()=>({borderTopWidth:'1',borderBottomWidth:'1',paddingTop:'10',paddingBottom:'10',lineHeight:'24',minHeight:'310'}),window:{addEventListener(){},confirm:text=>{confirmText.push(text);return confirmations.length?confirmations.shift():true;},prompt:(message,initial='')=>{promptDefaults.push(initial);return prompts.length?prompts.shift():(initial||'Kuvitteellinen poistamisen syy');}},fetch:async(url,options)=>{
   assert(url.startsWith('/api/memory/'),'Only mocked local memory actions allowed');const action=url.split('/').pop(),body=JSON.parse(options.body);calls.push({action,body});
   const pending=faults.get(action);if(pending?.length){const fault=pending.shift();if(fault instanceof Error)throw fault;return response(fault,false);}
   const override=overrides.get(action);if(override?.length)return response(override.shift());
+  if(held&&action===heldAction)return new Promise(resolve=>held.resolve=resolve);
+  if(action==='api-status'||action==='api-settings')return response({configured:body.clear!==true,source:body.clear?'none':'local',model:body.model||'gpt-4.1-mini',persistence:'process_memory',last_result:'not_tested'});
   if(action==='list')return response({records:rows});
   if(action==='save'){const old=rows.find(row=>row.id===body.id);const row={...sample,...body,id:old?old.id:'SOL-new-'+(++serial),revision:old?old.revision+1:1,status:'draft',verified_at:null,verified_by:null};rows=rows.filter(r=>r.id!==row.id);rows.push(row);return response({record:row});}
   if(action==='verify'||action==='retire'){const row=rows.find(r=>r.id===body.id);assert(row);Object.assign(row,action==='verify'?{status:'verified',verified_by:body.verified_by,verified_at:sample.updated_at}:{status:'retired',retirement_reason:body.reason},{revision:row.revision+1});return response({record:row});}
-  if(action==='search'){if(held)return new Promise(resolve=>held.resolve=resolve);if(searchResult)return response(searchResult);return response({state:'empty',hits:[],compatible_hits:[],review_hits:[]});}
+  if(action==='search'){if(searchResult)return response(searchResult);return response({state:'empty',hits:[],compatible_hits:[],review_hits:[]});}
   if(action==='suggest')return response({state:'unverified',suggestion:{title:'API-luonnos',solution:'Kuvitteellinen kokeilematon ehdotus.',limitations:'Ei kokeiltu oikeassa ympäristössä.'}});
   throw Error(action);
  }};
  vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],context);
- function visible(e){for(let p=e;p;p=p.parent)if(p.hidden)return false;return true;}
+ function visible(e){for(let p=e;p;p=p.parent)if(p.hidden||(p.tag==='dialog'&&!p.open))return false;return true;}
  async function click(id){const e=typeof id==='string'?elements[id]:id;assert(e&&visible(e)&&!e.disabled,'control unavailable '+(e?.id||e?.textContent||id));e.focus();return e.onclick?.();}
  async function submit(id){assert(visible(elements[id]));return elements[id].onsubmit({preventDefault(){}});}
  function input(id,value){elements[id].value=value;elements[id].handlers.input?.({target:elements[id]});}
@@ -58,14 +62,37 @@ function createHarness(initial=[]){
   action(label){return all(elements.records).find(e=>e.tag==='button'&&e.textContent===label);},
   group(label){return elements.hits.children.find(e=>e.children.some(child=>child.tag==='h3'&&child.textContent===label));},
   async key(id,key){let prevented=false;const e=elements[id];e.focus();await e.onkeydown?.({key,preventDefault(){prevented=true;}});return prevented;},
-  hold(){held={};return held;},release(value){const item=held;held=null;item.resolve(response(value));}
+  hold(action='search'){held={};heldAction=action;return held;},release(value){const item=held;held=null;item.resolve(response(value));}
  };return harness;
 }
 function hit(record,status='declared_match'){return {record,score:.8,environment_check:{status,missing_record_fields:status==='needs_review'?['product_version']:[],missing_query_fields:[]}};}
 function result(hits){return {state:'candidates',hits,compatible_hits:hits.filter(h=>h.environment_check.status==='declared_match'),review_hits:hits.filter(h=>h.environment_check.status==='needs_review')};}
 async function beginEditor(h){await h.click('tab-editor');h.fill();}
+async function beginSearchSuggestion(h){await search(h);await h.click('start-suggestion');h.elements['search-consent'].checked=true;return h.click('search-suggest');}
 async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for(const key in env)h.elements['filter-'+key].value=env[key];return h.submit('search-form');}
 
+ test('Hakunäkymän esikatselu ja lupa edeltävät lähetystä, kaikki ilmoitetut tiedot välitetään',async()=>{
+ const h=createHarness();h.fill();const before=h.snapshot();h.input('search-environment','Kuvitteellinen toimistolaite.');await search(h);assert.equal(h.count('suggest'),0);await h.click('start-suggestion');assert(!h.elements['panel-search'].hidden);assert.equal(h.count('suggest'),0);const preview=h.elements['search-send-preview'].textContent;for(const value of [h.elements.query.value,...Object.values(env),'Kuvitteellinen toimistolaite.'])assert(preview.includes(value));await h.click('search-suggest');assert.equal(h.count('suggest'),0);assert.equal(h.document.activeElement.id,'search-consent');h.elements['search-consent'].checked=true;await h.click('search-suggest');assert.deepEqual(h.calls.find(c=>c.action==='suggest').body,{problem:h.elements.query.value,environment:'Kuvitteellinen toimistolaite.',...env,send_to_api:true});assert.deepEqual(h.snapshot(),before);assert(!h.elements['panel-search'].hidden);assert.equal(h.elements['suggestion-preview'].parent.id,'search-proposal-home');assert(!h.elements['suggestion-preview'].hidden);assert.equal(h.count('save'),0);assert(!h.elements['search-consent'].checked);
+ });
+ test('Hakunäkymän ehdotus ei vaadi valinnaisia ympäristötietoja ja siirtyy uudeksi luonnokseksi',async()=>{
+ const h=createHarness();h.input('query','Kuvitteellinen VPN-ongelma.');await h.submit('search-form');await h.click('start-suggestion');assert(h.elements['search-send-preview'].textContent.includes('Ei ilmoitettu'));h.elements['search-consent'].checked=true;await h.click('search-suggest');assert.deepEqual(h.calls.find(c=>c.action==='suggest').body,{problem:h.elements.query.value,environment:'',send_to_api:true});await h.click('edit-suggestion');assert(!h.elements['panel-editor'].hidden);assert.equal(h.elements.environment.value,'Vapaata ympäristökuvausta ei ilmoitettu.');assert.equal(h.count('save'),0);await h.submit('editor');assert.equal(h.count('save'),1);assert.equal(h.rows[0].status,'draft');
+ });
+ test('Haun ehdotuksen siirron peruminen säilyttää keskeneräisen lomakkeen ja hyväksyminen tekee uuden luonnoksen',async()=>{
+ const h=createHarness([{...sample,status:'verified'}]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Keskeneräinen oma ratkaisu.');const before=h.snapshot();await h.click('tab-search');h.input('search-environment','Haun vapaa ympäristö.');await beginSearchSuggestion(h);h.confirmations.push(false);await h.click('edit-suggestion');assert.deepEqual(h.snapshot(),before);assert(!h.elements['panel-search'].hidden);assert(!h.elements['suggestion-preview'].hidden);assert.equal(h.count('save'),0);await h.click('edit-suggestion');assert.equal(h.elements.problem.value,h.elements.query.value);assert.equal(h.elements.environment.value,'Haun vapaa ympäristö.');for(const key in env)assert.equal(h.elements[key].value,env[key]);await h.submit('editor');const saved=h.calls.find(c=>c.action==='save').body;assert(!('id' in saved));assert.equal(h.rows.find(r=>r.id===sample.id).status,'verified');assert.equal(h.rows.length,2);
+ });
+ test('Haun kaikkien lähetettävien kenttien muutos poistaa luvan ja estää vanhan ehdotuksen siirron',async()=>{
+ for(const id of ['query','search-environment',...Object.keys(env).map(key=>'filter-'+key)]){const h=createHarness();await beginSearchSuggestion(h);h.elements['search-consent'].checked=true;h.input(id,h.elements[id].value+' Muutos');assert(!h.elements['search-consent'].checked,id);const before=h.snapshot();await h.click('edit-suggestion');assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('muuttunut'));assert.equal(h.count('save'),0);}
+ });
+ test('Haun ja kirjoituslomakkeen omat ehdotukset säilyvät välilehden vaihtuessa',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;h.respond('suggest',{suggestion:{title:'Lomakkeen ehdotus',solution:'Lomake',limitations:'Rajat'}});await h.click('suggest');await h.click('tab-search');await beginSearchSuggestion(h);assert.equal(h.elements['suggestion-heading'].textContent,'API-luonnos');await h.click('tab-editor');assert.equal(h.elements['suggestion-heading'].textContent,'Lomakkeen ehdotus');await h.click('tab-search');assert.equal(h.elements['suggestion-heading'].textContent,'API-luonnos');
+ });
+ test('Haun odotustila estää kaksoislähetyksen ja tarkat virheet säilyttävät molemmat lomakkeet',async()=>{
+ const h=createHarness();h.fill();const before=h.snapshot();await search(h);await h.click('start-suggestion');h.elements['search-consent'].checked=true;h.hold('suggest');const pending=h.click('search-suggest');assert(h.elements['search-suggest'].disabled);assert(h.elements['search-suggest'].textContent.includes('Odotetaan'));assert.equal(h.elements['search-api-options'].getAttribute('aria-busy'),'true');await h.elements['search-suggest'].onclick();assert.equal(h.count('suggest'),1);h.release({state:'unverified',suggestion:{title:'Haun ehdotus',solution:'Ohje',limitations:'Rajat'}});await pending;
+ for(const code of ['missing_api_key','invalid_api_key','api_authentication','api_forbidden','api_billing','api_model_access','api_rate_limit','api_timeout','api_connection','api_format']){h.elements['search-consent'].checked=true;h.fail('suggest',{error:'Virhe',help:'Täsmäohje '+code,code});await h.click('search-suggest');assert(h.elements.notice.textContent.includes('Täsmäohje '+code));assert(h.elements.notice.textContent.includes('Virhekoodi: '+code));assert.deepEqual(h.snapshot(),before);assert(!h.elements['search-suggest'].disabled);assert.equal(h.elements['search-api-options'].getAttribute('aria-busy'),'false');assert.equal(h.elements.query.value,'Kuvitteellinen VPN E42 -ongelma.');}assert.equal(h.count('save'),0);
+ });
+ test('Haun turvapysäytys ja virheellinen API-vastaus eivät korvaa tekstejä tai tallenna',async()=>{
+ const h=createHarness();h.fill();const before=h.snapshot();await search(h);await h.click('start-suggestion');for(const response of [{state:'safety_stop',message:'Pysähdy turvallisuussyystä.'},{suggestion:{title:'Vajaa'}}]){h.elements['search-consent'].checked=true;h.respond('suggest',response);await h.click('search-suggest');assert.deepEqual(h.snapshot(),before);assert(h.elements['suggestion-preview'].hidden);assert.equal(h.count('save'),0);assert.equal(h.document.activeElement.id,'notice');}
+ });
  test('Haku on oletus, muut paneelit piilossa, sivu ei lataa hallintaa automaattisesti',()=>{
  const h=createHarness();assert.equal(h.elements['tab-search'].getAttribute('aria-selected'),'true');assert(!h.elements['panel-search'].hidden);assert(h.elements['panel-editor'].hidden);assert(h.elements['panel-library'].hidden);assert(h.elements['next-steps'].hidden);assert.equal(h.calls.length,0);
  });
@@ -87,18 +114,47 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  h.setSearch(result([hit({...sample,status:'verified'},'needs_review')]));await search(h);assert(all(h.group(compatibleLabel)).some(e=>e.textContent.includes('yhteensopivia ehdokkaita ei löytynyt')));assert(all(h.group(reviewLabel)).some(e=>e.tag==='article'));
  });
  test('API-siirtymä ei lähetä mitään ja tallentamatonta tekstiä ei korvata ilman hyväksyntää',async()=>{
- const h=createHarness();await search(h);await h.click('start-suggestion');assert(!h.elements['panel-editor'].hidden);assert(h.elements['api-options'].open);assert.equal(h.document.activeElement.id,'api-heading');assert.equal(h.count('suggest'),0);h.fill();const before=h.snapshot();await h.click('tab-search');h.confirmations.push(false);await h.click('copy-query');assert.deepEqual(h.snapshot(),before);assert(!h.elements['panel-search'].hidden);
+ const h=createHarness();await search(h);await h.click('start-suggestion');assert(!h.elements['panel-search'].hidden);assert(!h.elements['search-api-options'].hidden);assert.equal(h.document.activeElement.id,'search-api-heading');assert.equal(h.count('suggest'),0);h.fill();const before=h.snapshot();h.confirmations.push(false);await h.click('copy-query');assert.deepEqual(h.snapshot(),before);assert(!h.elements['panel-search'].hidden);
  await h.click('tab-editor');await h.click('tab-library');await h.click('tab-editor');assert.deepEqual(h.snapshot(),before);
  });
- test('API-ehdotus vaatii erillisen luvan, pysyy kokeilemattomana eikä tallenna automaattisesti',async()=>{
+ test('API-ehdotus vaatii erillisen luvan ja avautuu ensin luettavaksi muuttamatta lomaketta',async()=>{
  const h=createHarness();await h.click('tab-editor');h.elements['api-options'].open=true;await h.click('suggest');assert.equal(h.count('suggest'),0);assert.equal(h.document.activeElement.id,'problem');h.fill();await h.click('suggest');assert.equal(h.count('suggest'),0);assert.equal(h.document.activeElement.id,'consent');
- h.elements.consent.checked=true;await h.click('suggest');assert.equal(h.count('suggest'),1);assert.equal(h.count('save'),0);assert.equal(h.elements.title.value,'API-luonnos');assert(h.elements.solution.value.includes('Ei kokeiltu'));assert(h.elements.limitations.textContent.includes('Kokeilematon'));assert(!h.elements.consent.checked);assert.equal(h.document.activeElement.id,'solution');
+ const before=h.snapshot();h.elements.consent.checked=true;await h.click('suggest');assert.equal(h.count('suggest'),1);assert.equal(h.count('save'),0);assert.deepEqual(h.snapshot(),before);assert(!h.elements['suggestion-preview'].hidden);assert.equal(h.elements['suggestion-heading'].textContent,'API-luonnos');assert(h.elements['proposal-solution'].textContent.includes('Kuvitteellinen'));assert(h.elements.limitations.textContent.includes('Ei kokeiltu'));assert(!h.elements.consent.checked);assert.equal(h.document.activeElement.id,'suggestion-heading');assert.equal(h.confirmText.length,0);
  const request=h.calls.find(call=>call.action==='suggest').body;assert.deepEqual(Object.keys(request).sort(),['environment','problem','send_to_api']);h.elements.consent.checked=true;h.input('environment','Uusi kuvitteellinen ympäristö');assert(!h.elements.consent.checked);
  });
- test('API-virhe, korvaamisen peruminen ja virheellinen vastaus säilyttävät lomaketekstin',async()=>{
- const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();h.confirmations.push(false);await h.click('suggest');assert.equal(h.count('suggest'),0);assert.deepEqual(h.snapshot(),before);
+ test('API-virhe ja virheellinen vastaus säilyttävät lomaketekstin',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();
  h.fail('suggest',new Error('Kuvitteellinen yhteysvirhe'));await h.click('suggest');assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');assert.equal(h.elements.notice.getAttribute('role'),'alert');assert(!h.elements.suggest.disabled);
  h.respond('suggest',{state:'unverified',suggestion:{title:'Ei saa korvata'}});await h.click('suggest');assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('ei voitu lukea'));
+ });
+ test('Ehdotuksen siirto kysyy ennen korvaamista ja tallennus tehdään erikseen',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();await h.click('suggest');
+ h.confirmations.push(false);await h.click('edit-suggestion');assert.deepEqual(h.snapshot(),before);assert.equal(h.count('save'),0);assert(!h.elements['suggestion-preview'].hidden);
+ await h.click('edit-suggestion');assert.equal(h.elements.title.value,'API-luonnos');assert(h.elements.solution.value.includes('Soveltuvuuden rajat ja puuttuvat tiedot:\nEi kokeiltu'));assert.equal(h.document.activeElement.id,'solution');assert.equal(h.count('save'),0);assert.equal(h.elements.problem.value,sample.problem);assert.equal(h.elements.environment.value,sample.environment);
+ const combined=h.elements.solution.value;await h.submit('editor');assert.equal(h.count('save'),1);assert.equal(h.rows[0].solution,combined);assert.equal(h.rows[0].status,'draft');
+ });
+ test('Muuttuneen ongelman ehdotusta ei siirretä vahingossa uuteen kuvaukseen',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;await h.click('suggest');h.input('problem','Toinen kuvitteellinen ongelma.');const before=h.snapshot();await h.click('edit-suggestion');assert.deepEqual(h.snapshot(),before);assert.equal(h.count('save'),0);assert(h.elements.notice.textContent.includes('muuttunut'));assert(!h.elements['suggestion-preview'].hidden);
+ });
+ test('Ehdotuksen HTML ja komentosarjat näytetään vain tekstinä',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const proposal={title:'<img src=x onerror=alert(1)>',solution:'<script>bad()</script>\n1. Säilytä rivit.',limitations:'<a href="javascript:bad()">Älä suorita</a>'};h.respond('suggest',{state:'unverified',suggestion:proposal});await h.click('suggest');
+ assert.equal(h.elements['suggestion-heading'].textContent,proposal.title);assert.equal(h.elements['proposal-solution'].textContent,proposal.solution);assert.equal(h.elements.limitations.textContent,proposal.limitations);assert.equal(h.elements['proposal-solution'].children.length,0);assert(!all(h.elements['suggestion-preview']).some(e=>['script','img','a'].includes(e.tag)));assert.equal(h.count('save'),0);
+ });
+ test('Suuri muokkain käyttää samaa kenttää ja palauttaa tekstin sekä fokuksen painikkeella ja Escillä',async()=>{
+ const h=createHarness();await beginEditor(h);const field=h.elements.solution;field.selectionStart=3;field.selectionEnd=8;field.scrollTop=42;await h.click('expand-solution');assert(h.elements['solution-dialog'].open);assert.equal(h.elements['solution-control'].parent,h.elements['solution-dialog-content']);assert.equal(h.document.activeElement,field);assert.equal(field.selectionStart,3);assert.equal(field.scrollTop,42);
+ h.input('solution','Ensimmäinen rivi.\nToinen rivi.\n<vanha teksti>');await h.click('close-solution');assert(!h.elements['solution-dialog'].open);assert.equal(h.elements['solution-control'].parent,h.elements['solution-home']);assert.equal(h.elements.solution,field);assert.equal(h.elements.solution.value,'Ensimmäinen rivi.\nToinen rivi.\n<vanha teksti>');assert.equal(h.document.activeElement.id,'expand-solution');
+ await h.click('expand-solution');let tabPrevented=false;h.elements['solution-dialog'].handlers.keydown({key:'Tab',shiftKey:true,preventDefault(){tabPrevented=true;}});assert(tabPrevented);assert.equal(h.document.activeElement.id,'close-solution');h.elements['solution-dialog'].handlers.keydown({key:'Tab',shiftKey:false,preventDefault(){}});assert.equal(h.document.activeElement.id,'solution');await h.click('close-solution');
+ await h.click('expand-solution');h.elements['solution-dialog'].handlers.close();assert.equal(h.elements['solution-control'].parent,h.elements['solution-dialog-content']);await h.click('close-solution');
+ await h.click('expand-solution');h.input('solution',field.value+'\nEscillä säilyvä lisäys.');let prevented=false;h.elements['solution-dialog'].handlers.cancel({preventDefault(){prevented=true;}});assert(prevented);assert(!h.elements['solution-dialog'].open);assert(h.elements.solution.value.endsWith('Escillä säilyvä lisäys.'));assert.equal(h.document.activeElement.id,'expand-solution');assert.equal(h.count('save'),0);assert.equal(field.getAttribute('form'),'editor');
+ });
+ test('Ratkaisukenttä kasvaa noin 20 riviin, vierii ja säilyttää käsin suurennetun koon',async()=>{
+ const h=createHarness();await beginEditor(h);h.input('solution','Lyhyt.');assert.equal(h.elements.solution.style.height,'310px');h.input('solution','Rivi\n'.repeat(30));assert.equal(h.elements.solution.style.height,'502px');h.input('solution','Lyhyt taas.');assert.equal(h.elements.solution.style.height,'310px');h.elements.solution.style.height='720px';await h.click('expand-solution');await h.click('close-solution');assert.equal(h.elements.solution.style.height,'720px');h.input('solution','Käsin suurennettu.');assert.equal(h.elements.solution.style.height,'720px');assert(html.includes('overflow-y:auto'));assert(html.includes('resize:vertical'));
+ });
+ test('Vanha pitkä ratkaisu säilyy kokonaan avaamisessa, suuressa muokkaimessa ja tallennuksessa',async()=>{
+ const text='Vanha alkuperäinen rivi.\n'.repeat(220)+'Lopputunniste';const h=createHarness([{...sample,solution:text,status:'verified'}]);await h.click('tab-library');await h.click(h.action('Muokkaa'));assert.equal(h.elements.solution.value,text);await h.click('expand-solution');await h.click('close-solution');assert.equal(h.elements.solution.value,text);await h.submit('editor');assert.equal(h.calls.find(c=>c.action==='save').body.solution,text);assert.equal(h.rows[0].status,'draft');
+ });
+ test('Ylipitkää yhdistettyä ehdotusta ei katkaista ja tallennus ohjaa lyhentämään sitä itse',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const proposal={title:'Pitkä ehdotus',solution:'s'.repeat(7900),limitations:'r'.repeat(500)};h.respond('suggest',{state:'unverified',suggestion:proposal});await h.click('suggest');await h.click('edit-suggestion');const combined=proposal.solution+'\n\nSoveltuvuuden rajat ja puuttuvat tiedot:\n'+proposal.limitations;assert.equal(h.elements.solution.value,combined);assert(h.elements['solution-length'].textContent.includes('mitään ei katkaistu'));await h.submit('editor');assert.equal(h.count('save'),0);assert.equal(h.elements.solution.value,combined);assert(h.elements.notice.textContent.includes('8000'));
  });
  test('Tallennusvirhe säilyttää kaikki kentät ja epäonnistuneen muokkauksen tietue-ID:n',async()=>{
  const h=createHarness([{...sample,status:'verified'}]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Tallentamaton tarkennus');const before=h.snapshot();h.fail('save',{error:'Versioristiriita',help:'Päivitä lista.'});await h.submit('editor');assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');assert(!h.elements['save-draft'].disabled);assert(h.elements['saved-next'].hidden);
@@ -136,6 +192,28 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  });
  test('Tekstit renderöidään tekstinä, eivät HTML:nä',async()=>{
  const malicious={...sample,title:'<img src=x onerror=alert(1)>',solution:'<script>bad()</script>'};const h=createHarness([malicious]);await h.click('tab-library');assert(all(h.elements.records).some(e=>e.textContent===malicious.title));assert(!all(h.elements.records).some(e=>e.tag==='img'||e.tag==='script'));h.setSearch(result([hit({...malicious,status:'verified'})]));await h.click('tab-search');await search(h);assert(all(h.elements.hits).some(e=>e.textContent===malicious.title));
+ });
+ test('API-asetus käyttää peitettyä kenttää, tyhjentää sen ja säilyttää ratkaisulomakkeen',async()=>{
+ const h=createHarness();await beginEditor(h);const before=h.snapshot();h.elements['api-settings-panel'].open=true;
+ assert.equal(h.elements['api-key'].type,'password');assert.equal(h.elements['api-key'].getAttribute('autocomplete'),'off');
+ h.elements['api-key'].value='fixture-secret-not-a-real-key';h.elements['api-model'].value='gpt-4.1-mini';await h.click('apply-api');
+ assert.equal(h.elements['api-key'].value,'');assert.deepEqual(h.snapshot(),before);assert(h.elements['api-setting-status'].textContent.includes('Avain asetettu'));assert(h.elements['api-setting-status'].textContent.includes('ei ole testattu'));
+ assert(!h.elements['api-setting-status'].textContent.includes('fixture-secret'));assert.equal(h.count('suggest'),0);assert.equal(h.count('save'),0);
+ await h.click('clear-api');assert(h.elements['api-setting-status'].textContent.includes('Avain puuttuu'));assert.deepEqual(h.snapshot(),before);
+ h.elements['api-key'].value='fixture-secret-not-a-real-key';h.fail('api-settings',{error:'Syöttövirhe',help:'Liitä pelkkä avain.',code:'invalid_key_format'});await h.click('apply-api');assert.equal(h.elements['api-key'].value,'');assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('Liitä pelkkä avain.'));
+ });
+ test('Tekoälypyynnön eteneminen näkyy ja kaksoispainallus tekee vain yhden pyynnön',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();h.hold('suggest');const pending=h.click('suggest');
+ assert(h.elements.suggest.disabled);assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'true');assert(h.elements.suggest.textContent.includes('Odotetaan'));assert(h.elements.notice.textContent.includes('45 sekuntia'));assert.deepEqual(h.snapshot(),before);
+ await h.elements.suggest.onclick();assert.equal(h.count('suggest'),1);
+ h.release({state:'unverified',suggestion:{title:'Testiehdotus',solution:'Kokeilematon.',limitations:'Testi.'}});await pending;
+ assert(!h.elements.suggest.disabled);assert.equal(h.elements.suggest.textContent,'Pyydä tekoälyehdotus');assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'false');assert.equal(h.count('save'),0);
+ });
+ test('API-virheiden täsmälliset toimintaohjeet näkyvät ja kaikki tekstit säilyvät',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();
+ for(const code of ['missing_api_key','invalid_api_key','api_authentication','api_forbidden','api_billing','api_model_access','api_rate_limit','api_timeout','api_connection','api_bad_request','api_format']){
+ h.fail('suggest',{error:'Kuvitteellinen virhe',help:'Täsmäohje: '+code,code});await h.click('suggest');assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('Täsmäohje: '+code));assert(h.elements.notice.textContent.includes('Virhekoodi: '+code));assert(!h.elements.suggest.disabled);assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'false');
+ }assert.equal(h.count('save'),0);
  });
  test('Semanttinen välilehtirakenne, kenttien nimet, fokus ja kapean näkymän CSS-sopimus',()=>{
  const h=createHarness();for(const name of ['search','editor','library']){const tab=h.elements['tab-'+name],panel=h.elements['panel-'+name];assert.equal(tab.getAttribute('role'),'tab');assert.equal(tab.getAttribute('aria-controls'),panel.id);assert.equal(panel.getAttribute('role'),'tabpanel');assert.equal(panel.getAttribute('aria-labelledby'),tab.id);}

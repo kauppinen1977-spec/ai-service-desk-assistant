@@ -4,6 +4,7 @@ from pathlib import Path
 from desk import answer,DeskError
 import desk
 from corpus import NAMES
+from api_settings import settings
 TOKEN=secrets.token_urlsafe(24)
 PAGE=(Path(__file__).parent/'index.html').read_text(encoding='utf-8').replace('__TOKEN__',TOKEN)
 MEMORY_PAGE=(Path(__file__).parent/'memory.html').read_text(encoding='utf-8').replace('__TOKEN__',TOKEN)
@@ -14,11 +15,16 @@ class Handler(BaseHTTPRequestHandler):
         for key,value in [('Content-Type',kind+'; charset=utf-8'),('Content-Length',str(len(raw))),('Cache-Control','no-store'),('X-Content-Type-Options','nosniff'),('Referrer-Policy','no-referrer')]:self.send_header(key,value)
         self.end_headers();self.wfile.write(raw)
     def error_reply(self,error):
-        self.reply(error.status,json.dumps({'error':str(error),'code':error.code,'help':error.help_text},ensure_ascii=False))
+        result={'error':str(error),'code':error.code,'help':error.help_text}
+        if hasattr(error,'upstream_status'):result.update(upstream_status=error.upstream_status,provider_code=error.provider_code)
+        self.reply(error.status,json.dumps(result,ensure_ascii=False))
     def do_GET(self):
+        # A page/token must not be exposed under an attacker-controlled DNS name.
+        if self.headers.get('Host','').split(':')[0] not in ('127.0.0.1','localhost'):
+            return self.reply(403,'{}')
         if self.path=='/':self.reply(200,PAGE.replace('__CORPUS__',desk.CORPUS),'text/html')
         elif self.path=='/memory':self.reply(200,MEMORY_PAGE,'text/html')
-        elif self.path=='/health':self.reply(200,json.dumps({'ok':True,'version':'0.3.1','corpus':desk.CORPUS,'api_key_available':bool(os.environ.get('OPENAI_API_KEY','').strip())}))
+        elif self.path=='/health':self.reply(200,json.dumps({'ok':True,'version':'0.3.1','corpus':desk.CORPUS,'api_key_available':settings.status()['configured']}))
         else:self.reply(404,'{}')
     def do_POST(self):
         if self.path!='/api/answer' and not self.path.startswith('/api/memory/'):return self.reply(404,'{}')
@@ -28,10 +34,12 @@ class Handler(BaseHTTPRequestHandler):
             if not 0<size<=(120000 if self.path.startswith('/api/memory/') else 20000):raise DeskError('Pyyntö on liian suuri tai tyhjä.')
             # Consume the bounded body before rejecting: unread POST data can reset Windows sockets.
             body=self.rfile.read(size)
-            if self.headers.get('X-Desk-Token')!=TOKEN:raise DeskError('Sivun istunto on vaihtunut.','session_expired',403,'Päivitä sivu ja yritä uudelleen.')
+            if self.headers.get('X-Desk-Token')!=TOKEN:raise DeskError('Sivun istunto on vaihtunut.','session_expired',403,'Kopioi tallentamattomat lomaketekstit talteen ennen sivun päivittämistä. Päivitä sitten sivu ja yritä uudelleen.')
             obj=json.loads(body)
             if not isinstance(obj,dict):raise DeskError('Virheellinen pyyntö.')
-            if self.path.startswith('/api/memory/'):
+            if self.path=='/api/memory/api-status':out=settings.status()
+            elif self.path=='/api/memory/api-settings':out=settings.update(obj)
+            elif self.path.startswith('/api/memory/'):
                 from solution_memory import dispatch
                 out=dispatch(self.path.removeprefix('/api/memory/'),obj)
             else:out=answer(obj.get('ticket'),obj.get('mode','demo'),obj.get('backend','vector'))

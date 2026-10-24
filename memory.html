@@ -14,7 +14,7 @@ h2{font-size:1.4rem;margin-top:0}h3{font-size:1.15rem}h4{font-size:1.05rem;margi
 section,.card{min-width:0;background:white;border:1px solid #d7e1e7;border-radius:12px;padding:22px;margin-bottom:20px}
 [role=tabpanel]{padding:0;border:0;background:transparent}.card{padding:18px;background:#f8fafb}.card p{white-space:pre-wrap;overflow-wrap:anywhere;margin:9px 0}
 label{display:block;font-weight:600;margin:16px 0 6px}input,textarea,select{font:inherit;width:100%;min-width:0;padding:10px;border:1px solid #93a7b5;border-radius:6px}
-textarea{min-height:110px;resize:vertical}#solution{min-height:190px}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
+textarea{min-height:110px;resize:vertical}#solution{min-height:calc(12 * 1.5em + 22px);line-height:1.5;overflow-y:auto}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
 button{font:inherit;font-weight:600;border:1px solid #16657b;background:#16657b;color:white;padding:10px 15px;border-radius:6px;cursor:pointer;max-width:100%;white-space:normal}
 button.secondary{background:white;color:#16657b}button.danger{background:white;border-color:#a23636;color:#a23636}
 button:disabled{opacity:.55;cursor:wait}input[type=checkbox]{width:auto;flex-shrink:0}.check{font-weight:400;display:flex;gap:10px;align-items:flex-start}
@@ -25,7 +25,13 @@ button:disabled{opacity:.55;cursor:wait}input[type=checkbox]{width:auto;flex-shr
 .empty{color:#536674;font-style:italic}details summary{cursor:pointer;font-weight:600;padding:8px 0}details{margin-top:12px}
 .environment-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .selected-record{border:3px solid #16657b}.status-group{background:#f8fafb}.status-group .card{background:white}
+.proposal-text{white-space:pre-wrap;line-height:1.65;max-width:80ch;overflow-wrap:anywhere}.proposal{border-left:5px solid #a24b00;background:#fffdf7}.proposal h4{margin-top:24px}
+dialog{width:calc(100% - 24px);max-width:1000px;height:90vh;height:90dvh;max-height:900px;margin:auto;padding:0;border:1px solid #93a7b5;border-radius:12px;color:inherit;background:white}
+dialog::backdrop{background:rgb(18 35 48 / .65)}.large-editor{height:100%;display:flex;flex-direction:column;gap:12px;padding:24px;min-height:0}.large-editor h2,.large-editor p{margin:0}
+#solution-dialog-content,#solution-dialog #solution-control{display:flex;flex-direction:column;flex:1;min-height:0}#solution-dialog #solution{flex:1;height:100%!important;min-height:100px;resize:none}#solution-dialog label{margin-top:0}#solution-dialog .row{margin:0;flex-shrink:0}
+#solution-dialog #solution-help{display:none}#solution-dialog #solution-length,#solution-dialog label,.large-editor>h2,.large-editor>p{flex-shrink:0}
 @media(max-width:760px){.environment-fields{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}body{padding:20px 12px}section,.card{padding:16px}.tabs{gap:8px}.row{align-items:stretch}.row button{flex:1 1 220px}}
+@media(max-width:760px){.large-editor{padding:16px;gap:8px}dialog{height:94vh;height:94dvh}.large-editor h2{font-size:1.15rem}#solution-dialog .muted{font-size:.85rem}}
 </style>
 <datalist id="operating-systems"><option value="Windows 11"><option value="Windows 10"><option value="macOS 15"><option value="Ubuntu 24.04"><option value="Debian 12"><option value="Android 15"></datalist>
 <header><div><span class="badge">AI Service Desk · kehitysversio</span><h1>Ratkaisumuisti</h1></div><a href="/">Alkuperäinen PoC</a></header>
@@ -37,6 +43,15 @@ button:disabled{opacity:.55;cursor:wait}input[type=checkbox]{width:auto;flex-shr
 </div>
 <div id="notice" role="status" aria-live="polite" tabindex="-1"></div>
 <main>
+<details id="api-settings-panel"><summary>Paikalliset API-asetukset</summary>
+<p id="api-key-help">Luo OpenAI API -projektissa API-avain, jolla on oikeus Responses-pyyntöihin. Liitä tähän pelkkä avain ilman lainausmerkkejä. Älä lähetä avainta keskusteluun tai kirjoita sitä ratkaisun kenttiin. API-käyttö laskutetaan erikseen.</p>
+<p id="api-persistence">Ota käyttöön vaihtaa avaimen heti tämän paikallisen palvelimen muistiin. Asetus säilyy selaimen päivityksessä ja sulkemisessa, mutta katoaa palvelimen sammuessa. Uudelleenkäynnistyksessä käytetään jälleen käynnistysympäristön asetuksia. Avainta ei tallenneta tiedostoon, lokiin tai ratkaisumuistiin eikä palauteta selaimelle.</p>
+<label for="api-key">Uusi API-avain (peitetty)</label><input type="password" id="api-key" maxlength="512" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="api-key-help api-persistence">
+<label for="api-model">API-mallin tunniste</label><input id="api-model" maxlength="120" value="gpt-4.1-mini" autocomplete="off" aria-describedby="api-model-help">
+<p id="api-model-help" class="muted">Oletus on gpt-4.1-mini. Käytä projektissasi sallittua, Responses-rajapintaa ja JSON-skeemaa tukevaa mallia. Mallin vaihtaminen vaatii avaimen syöttämisen uudelleen.</p>
+<div class="row"><button type="button" id="apply-api">Ota käyttöön</button><button type="button" id="api-status-refresh" class="secondary">Näytä asetuksen tila</button><button type="button" id="clear-api" class="secondary">Poista avain käytöstä</button></div>
+<p id="api-setting-status" role="status" aria-live="polite">Asetuksen tilaa ei vielä luettu. Avaa asetukset tai paina Näytä asetuksen tila. Avaimen asettaminen ei tee API-kutsua eikä todista sen kelvollisuutta.</p>
+</details>
 <section id="panel-search" role="tabpanel" aria-labelledby="tab-search" tabindex="0">
 <section aria-labelledby="search-heading"><h2 id="search-heading">Kuvaa ongelma ja hae aiempia ratkaisuja</h2>
 <p id="search-help">Kerro oireet, tarkka virheilmoitus ja missä tilanteessa ongelma ilmenee. Hakutulokset ovat vahvistettuja aiempia tapauksia, joiden soveltuvuus pitää arvioida erikseen.</p>
@@ -48,15 +63,24 @@ button:disabled{opacity:.55;cursor:wait}input[type=checkbox]{width:auto;flex-shr
 <div><label for="filter-product_version">Tuotteen versio</label><input id="filter-product_version" maxlength="80" aria-describedby="filter-help" placeholder="Esim. 5.2"></div>
 </div>
 <p id="filter-help" class="muted">Ympäristörajaukset ovat valinnaisia. Ristiriidat rajataan pois. Puuttuva tieto jää tarkistettavaksi; sitä ei päätellä ongelmatekstistä. Käytä samaa tuotenimeä ja täsmällistä versiota kuin tietueessa.</p>
+<label for="search-environment">Vapaa ympäristökuvaus (valinnainen, tekoälyehdotukseen)</label><textarea id="search-environment" maxlength="2000" aria-describedby="search-environment-help"></textarea>
+<p id="search-environment-help" class="muted">Voit kuvata laitteen tai tilanteen tarkemmin. Tätä kenttää ei käytetä aiempien ratkaisujen haussa. Se lähetetään vain, jos pyydät erikseen tekoälyehdotuksen ja annat lähetysluvan.</p>
 <label for="backend">Hakutapa</label><select id="backend"><option value="keyword">Sanahaku – ei lisäasennuksia</option><option value="vector">Vektorihaku – paikallinen upotusmalli</option></select>
 <div class="row"><button type="submit" id="search">Hae aiempia ratkaisuja</button></div>
 </form></section>
 <section id="results-section" aria-labelledby="results-heading" hidden><h2 id="results-heading" tabindex="-1">Hakutulokset</h2>
 <p class="muted">Ilmoitettujen tietojen yhteensopivuus tai puuttuvien tietojen tarkistusmerkintä ei takaa ratkaisun toimivuutta. Hakupisteet ovat samankaltaisuutta, eivät varmuusprosentteja.</p><div id="hits"></div></section>
 <section id="next-steps" aria-labelledby="next-heading" hidden><h2 id="next-heading">Tarvitsetko uuden ratkaisun?</h2>
-<p>Voit kirjoittaa uuden luonnoksen itse tai siirtyä pyytämään kokeilematonta API-ehdotusta. Ongelmateksti ja ilmoitetut rajaukset kopioidaan lomakkeeseen. Siirtyminen ei lähetä tietoja eikä tallenna mitään.</p>
-<div class="row"><button type="button" id="copy-query">Kirjoita uusi ratkaisu</button><button type="button" id="start-suggestion" class="secondary">Siirry API-ehdotukseen</button></div>
-</section></section>
+<p>Voit kirjoittaa uuden luonnoksen itse tai pyytää kokeilemattoman tekoälyehdotuksen tässä näkymässä. Ehdotus ei tallennu automaattisesti.</p>
+<div class="row"><button type="button" id="copy-query">Kirjoita uusi ratkaisu</button><button type="button" id="start-suggestion" class="secondary">Pyydä tekoälyehdotus</button></div>
+<section id="search-api-options" aria-labelledby="search-api-heading" hidden>
+<h3 id="search-api-heading" tabindex="-1">Tarkista tekoälypalvelulle lähetettävät tiedot</h3>
+<p>OpenAI-palvelulle lähetetään alla oleva ongelmakuvaus ja vain täyttämäsi ympäristötiedot. Hakutuloksia, tallennettuja ratkaisuja tai kirjoituslomakkeen tekstiä ei lähetetä. Valinnaisia tietoja ei tarvitse täyttää. Pyyntö voi aiheuttaa API-kulun; käytä vain kuvitteellisia tietoja.</p>
+<div id="search-send-preview" class="proposal-text"></div>
+<label class="check" for="search-consent"><input type="checkbox" id="search-consent">Sallin yllä näkyvien tietojen lähettämisen OpenAI-palvelulle tätä tekoälyehdotusta varten.</label>
+<div class="row"><button type="button" id="search-suggest">Lähetä ja pyydä ehdotus</button></div>
+</section>
+</section><div id="search-proposal-home"></div></section>
 <section id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" tabindex="0" hidden>
 <section aria-labelledby="editor-heading"><h2 id="editor-heading">Kirjoita tai muokkaa ratkaisua</h2>
 <p id="editing" class="muted">Uusi luonnos. Se tulee hakuun vasta erillisen kokeilun ja vahvistuksen jälkeen.</p>
@@ -71,17 +95,30 @@ button:disabled{opacity:.55;cursor:wait}input[type=checkbox]{width:auto;flex-shr
 <div><label for="product">Tuote (valinnainen)</label><input id="product" maxlength="120"></div>
 <div><label for="product_version">Tuotteen versio (valinnainen)</label><input id="product_version" maxlength="80"></div>
 </div>
-<label for="solution">Ratkaisuvaiheet ja soveltuvuuden rajat</label><textarea id="solution" maxlength="8000" required aria-describedby="solution-help"></textarea>
+<div id="solution-home"><div id="solution-control">
+<label for="solution">Ratkaisuvaiheet ja soveltuvuuden rajat</label><textarea id="solution" form="editor" rows="12" maxlength="8000" required aria-describedby="solution-help solution-length"></textarea>
 <p id="solution-help" class="muted">Kirjoita mitä tehtiin, missä sitä kokeiltiin ja mihin tilanteisiin ohje ei sovellu. Tallennus tekee aina luonnoksen; muokkaaminen poistaa aiemman vahvistuksen.</p>
-<details id="api-options"><summary>Halutessasi: pyydä API-ehdotus</summary>
+<p id="solution-length" class="muted" role="status" aria-live="polite"></p>
+</div></div>
+<div class="row"><button type="button" id="expand-solution" class="secondary" aria-haspopup="dialog" aria-controls="solution-dialog">Avaa isona</button></div>
+<p class="muted">Kenttä kasvaa sisällön mukaan noin 20 riviin asti ja vierii sen jälkeen. Voit suurentaa kenttää myös vetämällä sen alakulmasta.</p>
+<details id="api-options"><summary>Halutessasi: pyydä tekoälyehdotus</summary>
 <h3 id="api-heading" tabindex="-1">API-ehdotus on kokeilematon</h3>
 <p>Täytä ensin lomakkeen ongelman kuvaus ja vapaa ympäristökuvaus. Vain nämä kaksi kenttää lähetetään tekoälypalvelulle erillisellä luvallasi. Ehdotus ei ole verkkohaku eikä varmennettu ratkaisu, eikä se tallennu automaattisesti.</p>
 <p class="muted">Pyyntö voi aiheuttaa API-kulun. Käytä tässä PoC:ssa vain kuvitteellisia tietoja.</p>
 <label class="check"><input type="checkbox" id="consent">Sallin ongelmakuvauksen ja vapaan ympäristökuvauksen lähettämisen tätä API-ehdotusta varten.</label>
-<div class="row"><button type="button" id="api-to-fields" class="secondary">Täytä ongelma ja ympäristö</button><button type="button" id="suggest" class="secondary">Pyydä API-ehdotus</button></div>
-<p id="limitations" class="muted"></p></details>
+<div class="row"><button type="button" id="api-to-fields" class="secondary">Täytä ongelma ja ympäristö</button><button type="button" id="suggest" class="secondary">Pyydä tekoälyehdotus</button></div>
+</details>
 <div class="row"><button type="submit" id="save-draft">Tallenna luonnos</button><button type="button" id="new" class="secondary">Tyhjennä lomake</button></div>
 </form>
+<div id="editor-proposal-home"><section id="suggestion-preview" class="proposal" aria-labelledby="suggestion-heading" hidden>
+<p class="badge">Kokeilematon tekoälyehdotus</p><h3 id="suggestion-heading" tabindex="-1"></h3>
+<p>Ehdotusta ei ole testattu eikä tallennettu. Tarkista vaiheet ja rajat ennen muokkaamista. Lomakkeen nykyinen teksti säilyy siihen asti, kunnes siirrät ehdotuksen itse.</p>
+<h4>Ratkaisuvaiheet</h4><div id="proposal-solution" class="proposal-text"></div>
+<h4>Soveltuvuuden rajat ja puuttuvat tiedot</h4><div id="limitations" class="proposal-text"></div>
+<div class="row"><button type="button" id="edit-suggestion">Muokkaa ja tallenna luonnokseksi</button></div>
+<p class="muted">Painike siirtää ehdotuksen lomakkeeseen muokattavaksi. Se ei vielä tallenna mitään. Tallenna erikseen Tallenna luonnos -painikkeella.</p>
+</section></div>
 <div id="saved-next" hidden><h3 id="saved-heading" tabindex="-1">Luonnos tallennettu</h3><p id="saved-message"></p><button type="button" id="review-saved">Siirry luonnoksen tarkistamiseen</button></div>
 </section></section>
 <section id="panel-library" role="tabpanel" aria-labelledby="tab-library" tabindex="0" hidden>
@@ -93,6 +130,12 @@ button:disabled{opacity:.55;cursor:wait}input[type=checkbox]{width:auto;flex-shr
 <div id="records"><p class="empty">Avaa tämä välilehti ladataksesi tallennetut ratkaisut.</p></div>
 </section></section>
 </main>
+<dialog id="solution-dialog" aria-labelledby="solution-dialog-heading" aria-describedby="solution-dialog-help">
+<div class="large-editor"><h2 id="solution-dialog-heading">Muokkaa ratkaisua isona</h2>
+<p id="solution-dialog-help" class="muted">Muokkaat samaa tekstiä kuin lomakkeella. Sulje painikkeella tai Esc-näppäimellä; teksti säilyy. Tallenna luonnos erikseen lomakkeella.</p>
+<div id="solution-dialog-content"></div>
+<div class="row"><button type="button" id="close-solution">Sulje ja palaa lomakkeelle</button></div></div>
+</dialog>
 <script>
 'use strict';
 const token='__TOKEN__';
@@ -104,6 +147,9 @@ const views=['search','editor','library'];
 const states={draft:'Luonnos',verified:'Vahvistettu',retired:'Poistettu käytöstä'};
 const stateHelp={draft:'Ei mukana haussa. Tarkista sisältö, kokeile ratkaisu tässä ympäristössä ja vahvista vasta sitten.',verified:'Vahvistettu aiemmassa tapauksessa ilmoitetussa ympäristössä. Uuden ongelman soveltuvuus on tarkistettava erikseen.',retired:'Ei mukana haussa. Tietue ja poistamisen syy säilyvät historiassa; tätä tietuetta ei voi enää muokata tai vahvistaa.'};
 let editing=null,lastSaved=null,editorBaseline='',selectedRecordId=null,recordsDirty=true,generation=0,busy=false,afterRunFocus=null;
+let pendingProposal=null,solutionAutoHeight=0,solutionManualHeight=0,solutionReturnFocus=null;
+let proposalSource='editor';
+const proposals={search:null,editor:null};
 const recordViews=new Map(),retirementReasons=new Map();
 function node(tag,value,className){const e=document.createElement(tag);if(value!==undefined)e.textContent=value;if(className)e.className=className;return e;}
 function notify(message,error=false){$('notice').textContent=message;$('notice').className=error?'error':'';$('notice').setAttribute('role',error?'alert':'status');$('notice').setAttribute('aria-live',error?'assertive':'polite');}
@@ -112,8 +158,13 @@ function requestFocus(target){if(busy)afterRunFocus=target;else focusNow(target)
 async function run(work){if(busy)return false;const previous=document.activeElement;busy=true;afterRunFocus=null;document.querySelectorAll('button,input,textarea,select').forEach(e=>e.disabled=true);
  try{await work();return true;}catch(error){notify(error.message,true);if(!afterRunFocus)afterRunFocus=$('notice');return false;}
  finally{busy=false;document.querySelectorAll('button,input,textarea,select').forEach(e=>e.disabled=false);focusNow(afterRunFocus||previous);afterRunFocus=null;}}
-async function api(action,body={}){const response=await fetch('/api/memory/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Desk-Token':token},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error([result.error,result.help].filter(Boolean).join(' '));return result;}
-function activateTab(name){for(const view of views){const active=view===name;$('tab-'+view).setAttribute('aria-selected',String(active));$('tab-'+view).tabIndex=active?0:-1;$('panel-'+view).hidden=!active;}}
+async function api(action,body={}){let response,result;try{response=await fetch('/api/memory/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Desk-Token':token},body:JSON.stringify(body),cache:'no-store'});result=await response.json();}catch{throw new Error('Yhteys paikalliseen palvelimeen katkesi tai vastausta ei voitu lukea. Lomakkeen teksti säilyi. Tarkista, että palvelin on käynnissä. Älä toista ehdotuspyyntöä heti: käsittely on voinut jatkua palvelimella.');}if(!response.ok)throw new Error([result.error,result.help,result.code?'Virhekoodi: '+result.code:''].filter(Boolean).join(' '));return result;}
+function showApiStatus(state){const source={environment:'palvelimen käynnistysympäristö',local:'paikallinen asetus, vain palvelimen muistissa',none:'ei avainta'};const outcome=state.last_result==='success'?'Viimeisin API-vastaus vastaanotettiin.':state.last_result==='not_tested'?'Avaimen kelvollisuutta ei ole testattu.':'Viimeisin API-kutsu epäonnistui ('+state.last_result+'). Katso virheilmoituksen toimintaohje.';$('api-setting-status').textContent=(state.configured?'Avain asetettu. ':'Avain puuttuu tai on poistettu käytöstä. ')+'Lähde: '+(source[state.source]||'tuntematon')+'. Malli: '+state.model+'. '+outcome;$('api-model').value=state.model;}
+$('api-status-refresh').onclick=()=>run(async()=>{showApiStatus(await api('api-status'));});
+$('api-settings-panel').ontoggle=()=>{if($('api-settings-panel').open&&!busy)$('api-status-refresh').onclick();};
+$('apply-api').onclick=()=>run(async()=>{try{showApiStatus(await api('api-settings',{api_key:$('api-key').value,model:$('api-model').value}));notify('API-asetus otettiin käyttöön heti. Avaimen kelvollisuutta ei testattu eikä API-kutsua tehty. Asetus säilyy vain palvelimen käynnin ajan.');}finally{$('api-key').value='';}});
+$('clear-api').onclick=()=>run(async()=>{try{showApiStatus(await api('api-settings',{clear:true}));notify('Avain poistettiin käytöstä tämän palvelimen käynnin ajaksi. Käynnistysympäristön avain voi palata käyttöön uudelleenkäynnistyksessä.');}finally{$('api-key').value='';}});
+function activateTab(name){for(const view of views){const active=view===name;$('tab-'+view).setAttribute('aria-selected',String(active));$('tab-'+view).tabIndex=active?0:-1;$('panel-'+view).hidden=!active;}if(name==='editor')sizeSolution();if(name==='editor'||name==='search')renderProposal(name);}
 function selectView(name){activateTab(name);if(name==='library'&&recordsDirty)return run(async()=>{notify('Ladataan hallintaa ja historiaa…');await refresh();notify('Tallennetut ratkaisut ja historia päivitettiin.');});return Promise.resolve(true);}
 for(const [index,name] of views.entries()){
  const tab=$('tab-'+name);tab.onclick=()=>selectView(name);
@@ -124,15 +175,37 @@ for(const [index,name] of views.entries()){
  };
 }
 function editorSnapshot(){return JSON.stringify(editorFields.map(key=>$(key).value));}
+function sizeSolution(){const field=$('solution');$('solution-length').textContent=field.value.length+' / 8000 merkkiä.'+(field.value.length>8000?' Teksti on liian pitkä tallennettavaksi. Lyhennä sitä itse; mitään ei katkaistu.':'');
+ if($('solution-dialog').open||!field.getClientRects().length)return;
+ const style=getComputedStyle(field),border=parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth),padding=parseFloat(style.paddingTop)+parseFloat(style.paddingBottom),line=parseFloat(style.lineHeight);
+ const current=field.getBoundingClientRect().height;if(solutionAutoHeight&&Math.abs(current-solutionAutoHeight)>2)solutionManualHeight=current;
+ field.style.height='auto';const height=Math.max(parseFloat(style.minHeight),Math.min(field.scrollHeight+border,20*line+padding+border),solutionManualHeight);
+ field.style.height=height+'px';solutionAutoHeight=field.getBoundingClientRect().height;
+}
+window.addEventListener('resize',sizeSolution);
+$('expand-solution').onclick=()=>{if(busy)return;sizeSolution();solutionReturnFocus=document.activeElement;const field=$('solution'),start=field.selectionStart,end=field.selectionEnd,scroll=field.scrollTop;
+ $('solution-dialog-content').append($('solution-control'));$('solution-dialog').showModal();focusNow(field);field.setSelectionRange(start,end);field.scrollTop=scroll;};
+$('close-solution').onclick=()=>$('solution-dialog').close();
+$('solution-dialog').addEventListener('cancel',event=>{event.preventDefault();$('solution-dialog').close();});
+$('solution-dialog').addEventListener('keydown',event=>{if(event.key!=='Tab')return;const field=$('solution'),close=$('close-solution');
+ if(event.shiftKey&&document.activeElement===field){event.preventDefault();focusNow(close);}else if(!event.shiftKey&&document.activeElement===close){event.preventDefault();focusNow(field);}
+});
+$('solution-dialog').addEventListener('close',()=>{if($('solution-dialog').open)return;$('solution-home').append($('solution-control'));solutionAutoHeight=0;sizeSolution();focusNow(solutionReturnFocus||$('expand-solution'));});
+function renderProposal(source){proposalSource=source;pendingProposal=proposals[source];$(source+'-proposal-home').append($('suggestion-preview'));$('suggestion-preview').hidden=!pendingProposal;$('suggestion-heading').textContent=pendingProposal?.title||'';$('proposal-solution').textContent=pendingProposal?.solution||'';$('limitations').textContent=pendingProposal?.limitations||'';}
+function clearProposal(source='editor'){proposals[source]=null;if(proposalSource===source)renderProposal(source);}
+function suggestionInput(source){if(source==='editor')return {problem:$('problem').value,environment:$('environment').value};
+ const input={problem:$('query').value,environment:$('search-environment').value};for(const key of environmentFields)if($('filter-'+key).value.trim())input[key]=$('filter-'+key).value.trim();return input;}
+function updateSearchConsent(){const input=suggestionInput('search');$('search-consent').checked=false;$('search-send-preview').textContent='Ongelman kuvaus:\n'+input.problem+'\n\n'+environmentFields.map(key=>environmentLabels[key]+': '+(input[key]||'Ei ilmoitettu')).join('\n')+'\n\nVapaa ympäristökuvaus:\n'+(input.environment||'Ei ilmoitettu');}
+for(const id of ['query','search-environment',...environmentFields.map(key=>'filter-'+key)])$(id).addEventListener('input',updateSearchConsent);
 function editorDirty(){return editorSnapshot()!==editorBaseline;}
 function allowEditorReplacement(){return !editorDirty()||window.confirm('Lomakkeella on tallentamatonta tekstiä. Korvataanko se? Peruuta säilyttää tekstin.');}
 function updateEditing(){if(!editing)$('editing').textContent='Uusi luonnos. Se tulee hakuun vasta erillisen kokeilun ja vahvistuksen jälkeen.';
  else if(editing.status==='retired')$('editing').textContent='Tämä tietue on poistettu käytöstä. Lomakkeen teksti säilyi, mutta tietuetta ei voi enää muokata.';
  else $('editing').textContent=states[editing.status]+' · '+editing.id+' · versio '+editing.revision+'. Tallennus tekee luonnoksen ja poistaa aiemman vahvistuksen.';}
-function clearEditor(){editing=null;lastSaved=null;$('editor').reset();$('consent').checked=false;$('api-options').open=false;$('limitations').textContent='';$('saved-next').hidden=true;updateEditing();editorBaseline=editorSnapshot();}
-function editorChanged(){updateEditing();const dirty=editorDirty();if(dirty)$('editing').textContent+=' Lomakkeella on tallentamattomia muutoksia.';$('saved-next').hidden=!lastSaved||dirty;}
+function clearEditor(){editing=null;lastSaved=null;$('editor').reset();$('consent').checked=false;$('api-options').open=false;clearProposal();$('saved-next').hidden=true;updateEditing();sizeSolution();editorBaseline=editorSnapshot();}
+function editorChanged(){sizeSolution();updateEditing();const dirty=editorDirty();if(dirty)$('editing').textContent+=' Lomakkeella on tallentamattomia muutoksia.';$('saved-next').hidden=!lastSaved||dirty;}
 for(const key of editorFields)$(key).addEventListener('input',editorChanged);
-function openEditor(record){if(!allowEditorReplacement())return;editing=record;lastSaved=null;for(const key of editorFields)$(key).value=record[key]??'';$('consent').checked=false;$('limitations').textContent='';$('saved-next').hidden=true;updateEditing();editorBaseline=editorSnapshot();activateTab('editor');requestFocus($('title'));}
+function openEditor(record){if(!allowEditorReplacement())return;editing=record;lastSaved=null;for(const key of editorFields)$(key).value=record[key]??'';$('consent').checked=false;clearProposal();$('saved-next').hidden=true;updateEditing();editorBaseline=editorSnapshot();activateTab('editor');requestFocus($('title'));}
 function clearHits(){generation++;$('hits').replaceChildren(node('p','Tietopohja muuttui. Tee haku uudelleen.','empty'));$('next-steps').hidden=true;}
 for(const id of ['query','backend',...environmentFields.map(key=>'filter-'+key)])$(id).addEventListener(id==='backend'?'change':'input',()=>{generation++;$('hits').replaceChildren(node('p','Haku tai ympäristörajaukset muuttuivat. Tee haku uudelleen.','empty'));$('next-steps').hidden=true;});
 for(const id of ['problem','environment'])$(id).addEventListener('input',()=>{$('consent').checked=false;});
@@ -181,24 +254,40 @@ $('search-form').onsubmit=event=>{event.preventDefault();return run(async()=>{co
  if(requestGeneration!==generation)return;if(result.state==='safety_stop'){notify(result.message,true);requestFocus($('notice'));return;}
  const counts=renderHits(result);$('results-section').hidden=false;$('next-steps').hidden=false;notify('Haku valmis. Ilmoitettujen tietojen perusteella yhteensopivia: '+counts.compatible+'. Tarkistettavia: '+counts.review+'. Ympäristöristiriidan vuoksi rajattu pois: '+(result.environment_filter?.excluded_count||0)+'. Ehdokkaiden toimivuutta ei ole varmistettu.');requestFocus($('results-heading'));
 });};
-function startFromSearch(withApi){if(!allowEditorReplacement())return;clearEditor();$('problem').value=$('query').value;for(const key of environmentFields)$(key).value=$('filter-'+key).value;editorChanged();activateTab('editor');if(withApi){$('api-options').open=true;requestFocus($('api-heading'));}else requestFocus($('environment'));}
-$('copy-query').onclick=()=>startFromSearch(false);$('start-suggestion').onclick=()=>startFromSearch(true);
+function startFromSearch(){if(!allowEditorReplacement())return;clearEditor();$('problem').value=$('query').value;$('environment').value=$('search-environment').value;for(const key of environmentFields)$(key).value=$('filter-'+key).value;editorChanged();activateTab('editor');requestFocus($('environment'));}
+$('copy-query').onclick=startFromSearch;
+$('start-suggestion').onclick=()=>{if(busy)return;updateSearchConsent();$('search-api-options').hidden=false;requestFocus($('search-api-heading'));};
 $('new').onclick=()=>{if(allowEditorReplacement()){clearEditor();requestFocus($('title'));}};
 $('api-to-fields').onclick=()=>requestFocus(!$('problem').value.trim()?$('problem'):$('environment'));
 $('editor').onsubmit=event=>{event.preventDefault();return run(async()=>{
  if(editing?.status==='retired')throw new Error('Tietue on poistettu käytöstä eikä sitä voi enää muokata. Lomakkeen teksti säilyy.');
+ if($('solution').value.length>8000){requestFocus($('solution'));throw new Error('Ratkaisu ylittää 8000 merkin tallennusrajan. Lyhennä tekstiä itse ennen tallennusta. Mitään ei katkaistu tai tallennettu.');}
  const body=Object.fromEntries(editorFields.map(key=>[key,$(key).value]));if(editing){body.id=editing.id;body.revision=editing.revision;}
  notify('Tallennetaan luonnosta…');const saved=await api('save',body);if(!saved.record?.id)throw new Error('Tallennusvastausta ei voitu lukea. Lomakkeen teksti säilyi.');editing=saved.record;lastSaved=saved.record;selectedRecordId=saved.record.id;recordsDirty=true;editorBaseline=editorSnapshot();clearHits();updateEditing();$('saved-message').textContent='Luonnos ei vielä näy haussa. Tarkista tallennettu teksti ja kokeile ratkaisu aiemmassa tapauksessa tässä ympäristössä ennen vahvistamista.';$('saved-next').hidden=false;notify('Luonnos tallennettiin. Sitä ei lisätty hakutuloksiin.');requestFocus($('saved-heading'));
 });};
 $('review-saved').onclick=()=>run(async()=>{if(!lastSaved)return;if(editorDirty()){requestFocus($('save-draft'));throw new Error('Tallenna lomakkeen muutokset luonnokseksi ennen tarkistamista.');}selectedRecordId=lastSaved.id;activateTab('library');await refresh();notify('Tallennettu luonnos on valittu. Tarkista ratkaisuvaiheet ja kokeile ennen vahvistusta.');focusRecord(selectedRecordId);});
-$('suggest').onclick=()=>run(async()=>{
- if(!$('problem').value.trim()||!$('environment').value.trim()){requestFocus(!$('problem').value.trim()?$('problem'):$('environment'));throw new Error('Täytä ensin ongelman kuvaus ja vapaa ympäristökuvaus.');}
- if(!$('consent').checked){requestFocus($('consent'));throw new Error('Valitse erikseen lupa tietojen lähettämiseen API-ehdotusta varten.');}
- if($('solution').value.trim()&&!window.confirm('API-ehdotus korvaa lomakkeen nykyisen otsikon ja ratkaisun. Jatketaanko?'))return;
- notify('Odotetaan kokeilematonta API-ehdotusta…');const result=await api('suggest',{problem:$('problem').value,environment:$('environment').value,send_to_api:true});if(result.state==='safety_stop'){notify(result.message,true);requestFocus($('notice'));return;}
+function requestSuggestion(source){return run(async()=>{
+ const input=suggestionInput(source),fromSearch=source==='search',consent=$(fromSearch?'search-consent':'consent'),button=$(fromSearch?'search-suggest':'suggest'),options=$(fromSearch?'search-api-options':'api-options');
+ if(!input.problem.trim()||(!fromSearch&&!input.environment.trim())){requestFocus($(fromSearch?'query':!input.problem.trim()?'problem':'environment'));throw new Error(fromSearch?'Täytä ensin ongelman kuvaus.':'Täytä ensin ongelman kuvaus ja vapaa ympäristökuvaus.');}
+ if(!consent.checked){requestFocus(consent);throw new Error('Valitse erikseen lupa tietojen lähettämiseen API-ehdotusta varten.');}
+ button.textContent='Odotetaan tekoälyehdotusta…';options.setAttribute('aria-busy','true');
+ try{
+ notify('Lähetetään ongelma ja ilmoitetut ympäristötiedot tekoälypalvelulle ja odotetaan vastausta (enintään 45 sekuntia). Älä lähetä uudelleen.');const result=await api('suggest',{...input,send_to_api:true});if(result.state==='safety_stop'){notify(result.message,true);requestFocus($('notice'));return;}
  const proposal=result.suggestion;if(!proposal||!['title','solution','limitations'].every(key=>typeof proposal[key]==='string'))throw new Error('API-ehdotusta ei voitu lukea. Lomakkeen teksti säilyi.');
- const solution=proposal.solution+'\n\nRajoitteet ja puuttuvat tiedot:\n'+proposal.limitations;$('title').value=proposal.title;$('solution').value=solution;$('limitations').textContent='Kokeilematon API-ehdotus: '+proposal.limitations;$('consent').checked=false;editorChanged();
- notify('Kokeilematon API-ehdotus vastaanotettiin. Mitään ei tallennettu automaattisesti. Tarkista teksti, tallenna tarvittaessa luonnos ja kokeile ennen vahvistusta.');requestFocus($('solution'));
+ proposals[source]={...proposal,source,input};renderProposal(source);consent.checked=false;
+ notify('Kokeilematon tekoälyehdotus vastaanotettiin luettavaksi. Lomakkeen tekstiä ei muutettu eikä mitään tallennettu. Valitse Muokkaa ja tallenna luonnokseksi, kun haluat siirtää ehdotuksen lomakkeeseen.');requestFocus($('suggestion-heading'));
+ }finally{button.textContent=fromSearch?'Lähetä ja pyydä ehdotus':'Pyydä tekoälyehdotus';options.setAttribute('aria-busy','false');try{showApiStatus(await api('api-status'));}catch{$('api-setting-status').textContent='Asetuksen tilaa ei voitu päivittää. Tarkista paikallinen palvelin ja paina Näytä asetuksen tila.';}}
+});}
+$('suggest').onclick=()=>requestSuggestion('editor');
+$('search-suggest').onclick=()=>requestSuggestion('search');
+$('edit-suggestion').onclick=()=>run(async()=>{if(!pendingProposal)return;
+ const proposal=pendingProposal;
+ if(JSON.stringify(proposal.input)!==JSON.stringify(suggestionInput(proposal.source)))throw new Error('Ongelma tai ympäristö on muuttunut ehdotuksen saamisen jälkeen. Ehdotus säilyy luettavana. Pyydä uusi ehdotus nykyisillä tiedoilla ennen sen siirtämistä lomakkeeseen.');
+ if(proposal.source==='search'){
+  if(!allowEditorReplacement())return;clearEditor();$('problem').value=proposal.input.problem;$('environment').value=proposal.input.environment||'Vapaata ympäristökuvausta ei ilmoitettu.';for(const key of environmentFields)$(key).value=proposal.input[key]||'';
+ }else if(($('title').value.trim()||$('solution').value.trim())&&!window.confirm('Ehdotus korvaa lomakkeen nykyisen otsikon ja ratkaisuvaiheet. Muut kentät säilyvät. Korvataanko tekstit? Peruuta säilyttää nykyisen tekstin.'))return;
+ $('title').value=proposal.title;$('solution').value=proposal.solution+'\n\nSoveltuvuuden rajat ja puuttuvat tiedot:\n'+proposal.limitations;editorChanged();activateTab('editor');
+ notify('Kokeilematon ehdotus siirrettiin lomakkeeseen. Muokkaa ja paina erikseen Tallenna luonnos. Mitään ei vielä tallennettu.');requestFocus($('solution'));
 });
 $('refresh').onclick=()=>run(async()=>{notify('Päivitetään hallintaa ja historiaa…');await refresh();notify('Tallennetut ratkaisut ja historia päivitettiin.');requestFocus($('library-heading'));});
 activateTab('search');editorBaseline=editorSnapshot();

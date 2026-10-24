@@ -5,6 +5,7 @@
 !/.env.example
 !/README.md
 !/app.py
+!/api_settings.py
 !/solution_memory.py
 !/memory.html
 !/desk.py
@@ -67,9 +68,13 @@
 !/tests/evaluate_memory_environment.py
 !/tests/evaluate_memory_ranking.py
 !/tests/test_memory_http.py
+!/tests/test_api_setup.py
 !/tests/ui_memory_test.cjs
+!/tests/ui_memory_browser_test.cjs
+!/docs/15_ratkaisumuistin_luettavuus_testiraportti.md
 !/docs/12_solution_memory.md
 !/docs/13_ratkaisumuistin_pikaohje.md
+!/docs/14_api_kayttoonotto_testiraportti.md
 !/tests/test_safety_stop.py
 !/tests/test_hybrid_fallback.py
 !/tests/test_startup_applicability.py

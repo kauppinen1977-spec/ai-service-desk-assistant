@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from desk import DeskError
-from solution_memory import Memory, suggest
+from solution_memory import Memory, suggest, dispatch
 
 
 SAMPLE = dict(title='Harjoitusyrityksen VPN E42', problem='VPN yhteys epäonnistuu virheellä E42.',
@@ -112,6 +112,33 @@ class MemoryTests(unittest.TestCase):
 
 
 class SuggestionTests(unittest.TestCase):
+    def test_optional_environment_and_declared_fields_are_sent_without_opening_database(self):
+        response = dict(title='Luonnos', solution='Tarkista versio.', limitations='Kokeilematon.')
+        for context in ({}, {'operating_system': 'Windows 11', 'product': 'AuroraVPN',
+                             'product_version': '5.2', 'environment': 'Vapaa kuvaus.'}):
+            with self.subTest(context=context), patch('desk.request_model', return_value=response) as provider, \
+                    patch('solution_memory.Memory', side_effect=AssertionError('Suggestion must not open database')):
+                result = dispatch('suggest', dict(problem=SAMPLE['problem'], send_to_api=True,
+                                                  unrelated_secret='never-send', **context))
+                sent = json.loads(provider.call_args.args[0]['input'])
+                self.assertEqual(sent, dict(problem=SAMPLE['problem'], environment='', **context)
+                                 if 'environment' not in context else dict(problem=SAMPLE['problem'], **context))
+                self.assertEqual(result['state'], 'unverified')
+
+    def test_invalid_optional_fields_do_not_call_provider(self):
+        for context in ({'operating_system': 42}, {'product_version': 'x' * 81},
+                        {'environment': 'x' * 2001}, {'environment': None}):
+            with self.subTest(context=context), patch('desk.request_model') as provider:
+                with self.assertRaises(DeskError):
+                    suggest(dict(problem=SAMPLE['problem'], send_to_api=True, **context))
+                provider.assert_not_called()
+
+    def test_safety_stop_checks_declared_environment_too(self):
+        with patch('desk.request_model') as provider:
+            result = suggest(dict(problem=SAMPLE['problem'], product='Akku on turvonnut.', send_to_api=True))
+            provider.assert_not_called()
+            self.assertEqual(result['state'], 'safety_stop')
+
     def test_no_api_without_explicit_send(self):
         with patch('desk.request_model') as provider:
             with self.assertRaises(DeskError):
