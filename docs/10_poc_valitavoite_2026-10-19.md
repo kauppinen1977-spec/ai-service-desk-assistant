@@ -245,3 +245,103 @@ API-avain poistettiin ympäristöstä ja mallien verkkolataukset estettiin.
 Tämä työ ei muuta `main`-haaraa eikä lisää tietokantaa, lokeja tai paikallista
 virtuaaliympäristöä Gitiin. Oikea API-koe, upotusmallin hakulaadun arviointi ja
 uudelleenkäynnistyksen jälkeinen selainkoe jäävät erikseen tehtäviksi.
+
+## Ratkaisumuistin oikean upotusmallin koe – 24.10.2026
+
+Koe tehtiin nykyisessä `kehitys/ratkaisumuisti`-worktreessä commitin `f3a9aee`
+päällä. Sovellus- tai hakukoodia ei muutettu. Nykyinen tietokanta säilytettiin;
+kuvitteellisille tapauksille luotiin erillinen tietokanta hakemistoon
+`data/vector-evaluation/run-20261024T084240124854Z`.
+Tietokanta ja sen oma vektorivälimuisti eivät kuulu Gitiin.
+
+### Riippuvuudet ja paikallinen malli
+
+Worktreen Python 3.13.15 -virtuaaliympäristöön asennettiin
+`requirements-vector.txt`:n riippuvuudet käyttäen CPU-versiota PyTorchista.
+Keskeiset toteutuneet versiot: sentence-transformers 5.7.0,
+torch 2.14.1+cpu, transformers 5.20.2, huggingface-hub 2.3.0 ja NumPy 2.5.4.
+`uv pip check` hyväksyi kaikki 42 asennettua pakettia. Vanhan projektin
+virtuaaliympäristöä ei käytetty eikä muutettu.
+
+`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` löytyi jo
+paikallisesta välimuistista. Revisio on
+`e8f8c211226b894fcb81acc59f3b34ba3efd5f42`. Malli kopioitiin tämän
+worktreen `.model-cache/hub`-hakemistoon; painotiedoston tarkistussumma
+varmistettiin samaksi kuin lähteessä. Mallia ei ladattu verkosta.
+
+Koe käytti sovelluksen oikeaa `search.encoder()`-latausta ja `Memory.search()`-
+hakua CPU:lla. Upotusten ulottuvuus oli 384. Mallin latauksen ja hakukokeiden
+aikana verkkoyhteydet estettiin Pythonin audit-koukulla; yhteysyrityksiä oli 0.
+API-avain poistettiin prosessin ympäristöstä. Verkkoliikennettä tarvittiin
+vain riippuvuuspakettien lataamiseen pakettivarastoista, ei ulkoiseen
+malli-inferenssiin tai API-kokeeseen.
+
+### Aineisto, odotukset ja tulokset
+
+Ennen mallin latausta lukittiin 11 kuvitteellisen tietueen aineisto ja 19
+kyselyä odotuksineen: 9 vahvistettua, 1 luonnos ja 1 käytöstä poistettu tietue.
+Vahvistus on tässä testitila, ei oikean tukiratkaisun hyväksyntä. Sopivuus
+edellytti oireen lisäksi oikeaa organisaatiota, käyttöjärjestelmää ja
+ilmoitettua ohjelmaversiota. Hakuraja oli koko kokeen **0,43** ja tulosmäärän
+raja **3**. Aineistoa, kyselyjä tai hakurajaa ei muutettu tulosten perusteella.
+
+| Kokeen osa | Tulos |
+|---|---|
+| Eri sanoin kuvatut ongelmat | Oikea tietue ensimmäisenä 3/3; kaikissa myös väärän ympäristön osumia |
+| Samankaltaiset eri ympäristön tapaukset | Oikea ensimmäisenä 7/8, top-3:ssa 8/8; jokaisessa myös soveltumattomia osumia |
+| Sopivaa ratkaisua ei ole | Tyhjä tulos vain 1/6; virheellisiä osumia 5/6 |
+| Luonnoksen ja poistetun tietueen omat haut | Kumpikaan tietue ei palannut hakuun, mutta molemmat kyselyt palauttivat muita vääriä osumia |
+| Vahvistetun tietueen käytöstä poisto | Tietue poistui hausta ja välimuistin tunniste vaihtui |
+| Vahvistetun tietueen muokkaus luonnokseksi | Tietue poistui hausta ja välimuistin tunniste vaihtui |
+
+**Puuttuvat oikeat tulokset:** 0/11 kyselyä, joille aineistossa oli sopiva
+vahvistettu tietue, jäi ilman oikeaa top-3-osumaa. Oikea ensimmäinen osuma
+puuttui yhdessä näistä kyselyistä. Tulokset eivät osoita yleistä hakukattavuutta.
+
+**Väärät osumat:** pääkokeen 19 kyselystä 18 palautti vähintään yhden
+soveltumattoman osuman; tällaisia osumia oli yhteensä 35. Esimerkkejä:
+
+- E03, Koivun Windows/AuroraVPN 6.1: ensimmäisenä väärä 5.2-tietue
+  pisteillä **0,832618**; oikea 6.1-tietue vasta toisena, **0,814910**.
+- N02, Ubuntu/AuroraVPN: aineistossa ei ole Ubuntu-ratkaisua, mutta
+  Windows-tietue tuli ensimmäiseksi pisteillä **0,778964**.
+- N04, uusi Leppä-organisaatio: aineistossa ei ole sen ratkaisua, mutta
+  Koivun tietue tuli ensimmäiseksi pisteillä **0,866090**.
+- N01, ulkoisen näytön vilkkuminen: osumaksi tuli verkkolevykansion
+  käyttöoikeusratkaisu pisteillä **0,471605**.
+- N06, älykortinlukija: haku palautti tulostinratkaisuja pisteillä
+  **0,449666** ja **0,440154**.
+- N05, PostgreSQL-kyselyn lukitusaikakatkaisu: ainoa kuudesta tavallisesta
+  vastausta vailla olevasta tapauksesta, jossa haku palautti tyhjän tuloksen.
+
+Nykyinen haku sisällyttää ympäristön tekstiin, mutta ei suodata organisaatiota,
+käyttöjärjestelmää tai ohjelmaversiota erillisinä ehtoina. Semanttinen
+samankaltaisuus auttaa löytämään aihepiirin, mutta kokeessa se ei riittänyt
+ympäristön soveltuvuuden tai vastauksen puuttumisen tunnistamiseen.
+Tilasuodatus toimi, vaikka poistettujen tapausten kyselyt tuottivat edelleen
+muita soveltumattomia osumia. Hakurajan nostaminen ei yksin korjaisi havaittuja
+korkeapisteisiä ympäristövirheitä. Hakukoodia tai rajaa ei muutettu.
+
+### Todisteet ja säilyminen
+
+[Paikallinen yksityiskohtainen raportti](../data/vector-evaluation/run-20261024T084240124854Z/report.md)
+sisältää kaikki kyselyt, odotukset, palautetut tietueet pisteineen ja
+välimuistin tilamuutoskokeet. Samassa paikallisessa testihakemistossa ovat
+`fixtures.json`, `results.json`, `requirements-installed.txt`, erillinen
+`fictional-solutions.sqlite3` ja sen `.vectors.json`-välimuisti. Ne ovat
+Gitin ulkopuolella; paikallinen raporttilinkki toimii tässä worktreessä.
+
+Toistettava koeskripti: `data/vector-evaluation/run_vector_evaluation.py`.
+Jokainen ajo luo uuden testihakemiston eikä kirjoita nykyiseen tietokantaan.
+Koeaineisto on pieni etukäteen laadittu kehitysaineisto, ei riippumaton
+arviointiaineisto tai laatulupaus.
+
+Nykyisen `data/solutions.sqlite3`-tietokannan SHA-256 ennen ja jälkeen kokeen:
+`3819b6162a2c0ee2513beeb209d8fcc9ebc735bd14f3f8733b05f2c4e814f83c`.
+Erillisen testitietokannan SQLite-eheystarkistus hyväksyttiin. Tilamuutosten
+jälkeen siinä on 7 vahvistettua, 2 luonnosta ja 2 käytöstä poistettua tietuetta.
+
+Riippuvuuksien asennuksen jälkeen **194/194 Python-testiä** ja ratkaisumuistin
+JavaScript-testi hyväksyttiin. Nämä regressiotestit läpäisevät, vaikka yllä
+kuvatussa oikean mallin laatukokeessa havaittiin soveltumattomia osumia.
+Commit `f3a9aee`, nykyinen tietokanta ja vanha projekti säilytettiin.
