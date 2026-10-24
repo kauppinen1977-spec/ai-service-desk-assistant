@@ -63,6 +63,8 @@
 !/tests/test_summary.py
 !/tests/test_http.py
 !/tests/test_solution_memory.py
+!/tests/test_memory_environment.py
+!/tests/evaluate_memory_environment.py
 !/tests/test_memory_http.py
 !/tests/ui_memory_test.cjs
 !/docs/12_solution_memory.md
@@ -79,6 +81,7 @@
 !/tests/fixtures/
 /tests/fixtures/*
 !/tests/fixtures/v03_vpn_response.json
+!/tests/fixtures/memory_environment_cases.json
 
 # Salaisuudet ja paikalliset tuotokset: nämä estot ohittavat sallintalistan.
 .env

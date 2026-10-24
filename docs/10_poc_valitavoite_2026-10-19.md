@@ -345,3 +345,165 @@ Riippuvuuksien asennuksen jälkeen **194/194 Python-testiä** ja ratkaisumuistin
 JavaScript-testi hyväksyttiin. Nämä regressiotestit läpäisevät, vaikka yllä
 kuvatussa oikean mallin laatukokeessa havaittiin soveltumattomia osumia.
 Commit `f3a9aee`, nykyinen tietokanta ja vanha projekti säilytettiin.
+
+## Rakenteisten ympäristötietojen parannus ja loppuarviointi – 24.10.2026
+
+Edellinen oikean mallin arviointiraportti tallennettiin ensin paikalliseen
+commitiin **`9abeaf1`**. Sen edeltäjä `f3a9aee` säilyy historiassa.
+Toteutus koskee vain `kehitys/ratkaisumuisti`-worktreetä.
+
+### Rajattu toteutus
+
+Ratkaisulle ja haulle lisättiin valinnaiset `operating_system`, `product`
+ja `product_version`. Vapaa `environment`-kuvaus säilyy. Ilmoitettujen
+kenttien ristiriidat suljetaan pois ennen sana- tai vektorihakua ja top-3-rajaa.
+Puuttuva arvo ei ole yhteensopivuuslupaus: tulos merkitään tarkistettavaksi,
+ja tietueesta sekä hakurajauksista puuttuvat kentät eritellään.
+
+Kaikkien kolmen kentän täsmääminen ilmaisee vain ilmoitettujen arvojen
+samuuden. Sovellus näyttää edelleen samankaltaisia **ehdokkaita** ja pyytää
+tarkistamaan oireet sekä muun ympäristön. Organisaatiolle ei lisätty tässä
+vaiheessa rakenteista kenttää. Hakutekstistä ei päätellä rakenteisia rajauksia.
+Vertailu normalisoi kirjainkoon ja välilyönnit; aliaksia tai versioalueita ei
+päätellä. Hakuraja pysyi **0,43:ssa**, tulosmäärän raja **3:ssa** ja `search.py`
+muuttumattomana. Hakurajaa, aineistoa tai kyselyjä ei sovitettu tuloksiin.
+
+### Kehitysaineisto ja erilliset loppuarviointikyselyt
+
+Aineisto lukittiin ennen toteutusta tiedostoon
+`tests/fixtures/memory_environment_cases.json`: 19 aiempaa kehityskyselyä ja
+17 uutta loppuarviointikyselyä. Kyselyiden ja odotusten tiedoston SHA-256 on
+`2b4a9d73be6eb43033df9df7cd64610fe926cdf6fe6d6b5307a53e2f3298f675`.
+
+Sama kuvitteellinen 11 tietueen tapausaineisto sisältää 9 vahvistettua,
+yhden luonnoksen ja yhden käytöstä poistetun tietueen. Rakenteiset arvot
+kirjoitettiin käsin vain testiaineistoon. Saarnin VPN-tietueelta jätettiin
+versio ja vanhaa tietuetta jäljittelevältä verkkolevytapaukselta kaikki kolme
+arvoa puuttumaan. Tulostintapauksille ei keksitty puuttuvaa tuoteversiota.
+Käyttäjän tietueiden uusia kenttiä ei täytetty näistä testeistä.
+
+Loppuarvioinnin uudet kyselyt laadittiin saman kehitystyön yhteydessä;
+kyse ei ole riippumattomasta holdout-aineistosta. Toteutuksen tarkistussummat
+jäädytettiin kehityskokeen ja kooditarkistuksen jälkeen ennen loppuarviointia.
+Hakutoteutus on sama kehitys- ja loppukokeessa. Käyttöliittymän tarkistusviestiä
+täsmennettiin ennen jäädytystä; hakukoodia ei muutettu loppukokeen perusteella.
+
+### Tulokset oikealla upotusmallilla
+
+Malli oli sama paikallinen monikielinen MiniLM, revisio
+`e8f8c211226b894fcb81acc59f3b34ba3efd5f42`, CPU, 384 ulottuvuutta.
+Vertailun molemmat puolet käyttivät samoja kuvitteellisia tietueita ja
+sanatarkasti samoja hakutekstejä: ennen = ilman rakenteisia rajauksia,
+jälkeen = erikseen annetut rakenteiset rajaukset käytössä.
+
+| Mittari | Kehitys: ennen → jälkeen | Loppuarviointi: ennen → jälkeen |
+|---|---|---|
+| Oikea ensimmäinen osuma | 10/11 → 11/11 | 9/10 → 7/10 |
+| Oikea tietue top-3:ssa | 11/11 → 11/11 | 10/10 → 9/10 |
+| Hylätty oikea ratkaisu | 0 → 0 | 0 → 1 |
+| Puuttuva oikea top-3-tulos | 0 → 0 | 0 → 1 |
+| Väärien osumien määrä | 35 → 14 | 32 → 20 |
+| Kyselyjä, joissa väärä osuma | 18/19 → 8/19 | 15/17 → 10/17 |
+| Ei sopivaa tietuetta, silti osumia | 7/8 → 3/8 | 6/7 → 4/7 |
+
+Vastausta vailla olevien tapausten määrät sisältävät myös vain luonnoksena
+ja vain käytöstä poistettuna löytyvän tapauksen. Väärä osuma tarkoittaa
+etukäteen määritetyn oireen ja ympäristön kannalta soveltumatonta tietuetta;
+se lasketaan virheeksi myös silloin, kun käyttöliittymä merkitsee sen
+asianmukaisesti tarkistettavaksi.
+
+**Loppuarvioinnin keskeiset regressiot ja jäljelle jääneet väärät osumat:**
+
+- **F12, hylätty oikea:** hakurajauksen `Win 11` hylkäsi tietueen, jonka arvo
+  on `Windows 11`. Nämä tarkoittavat kokeessa samaa käyttöjärjestelmää.
+  Tarkka vertailu aiheutti yhden väärän hylkäyksen ja puuttuvan top-3-tuloksen.
+- **F17, väärä ensimmäinen:** oikea VPN-tietue sai **0,833909**, mutta vanha
+  hakusanaheuristiikka nosti puutteellisen verkkolevytietueen (**0,498315**)
+  sen edelle. Diagnostiikan peruste `unique_title_or_keyword_term` käytti
+  sanaa `verkkosivut`: kuuden kirjaimen sanavartalo yhdistyi verkkolevyohjeen
+  hakusanoihin. Suodatus toi tämän puutteellisen tietueen kolmen ehdokkaan
+  joukkoon. Kenttien kirjainkoko- ja välilyöntinormalisointi toimi oikein.
+- **F11, puuttuva hakuversion arvo:** hakutekstissä mainittiin 6.1, mutta
+  erillinen versiorajaus oli tyhjä. Versiota ei päätelty tekstistä. Väärä
+  5.2-tietue jäi ensimmäiseksi (**0,870941**), oikea 6.1 toiseksi (**0,864221**).
+  Molemmat näytettiin puuttuvan hakutiedon vuoksi tarkistettavina.
+- **F07, eri organisaatio:** Leppä-yrityksen kysely palautti Koivun VPN-tietueen
+  (**0,898432**). Kolmen rakenteisen kentän samuus ei ratkaise organisaatioeroa.
+- **F08, eri oire samassa ympäristössä:** 40 minuutin jälkeen katkeava yhteys
+  palautti yhteyden avaamisen E42-virheen ratkaisun (**0,667108**).
+  Ympäristörajaukset eivät osoita oireen tai korjauksen sopivuutta.
+- **F13, puuttuva tietueen versio:** versioon 5.20 palautui Saarnin tietue
+  (**0,875963**), jonka versio on tuntematon. Se jäi tarkistettavaksi;
+  tunnettuun 5.2-versioon kuuluvat ristiriitaiset tietueet rajattiin pois.
+- **F15, poistettu tapaus:** käytöstä poistettu skanneritietue ei palannut,
+  mutta haku palautti puutteellisen verkkolevytietueen (**0,440632**).
+
+Nämä ovat todettuja laatupuutteita. Väärien osumien väheneminen ei tässä
+kokeessa merkinnyt oikeiden ykkösosumien paranemista loppuarvioinnissa.
+Erityisesti puuttuvien tietojen ehdokkaiden järjestys ja OS-aliasten hallittu
+käsittely tarvitsevat seuraavan erillisen korjauksen ja uusia arviointikyselyjä.
+Heuristiikkaa tai aliaksia ei muutettu tämän loppuarvioinnin läpäisemiseksi.
+
+### Puuttuvien tietojen raportointi
+
+Loppuarvioinnin 17 kyselystä 12 palautti vähintään yhden tarkistettavan
+osuman. Palautuneissa osumissa oli 18 kertaa puuttuva tietueen kenttäjoukko
+ja 7 kertaa puuttuva hakukenttäjoukko. Nämä ovat osumakohtaisia määriä,
+eivät eri tietueiden määriä, ja sama osuma voi kuulua molempiin lukuihin.
+Kaikki kolme tietoa täsmäsi myös kolmessa väärässä osumassa; siksi tämä
+merkintä ei tarkoita ratkaisun soveltuvuuden hyväksyntää.
+
+F10:n vanhaa tietuetta jäljittelevä verkkolevyohje löytyi oikeana osumana
+(**0,711715**), mutta kaikki sen rakenteiset tiedot merkittiin puuttuviksi.
+F09:n hakurajauksista puuttuvaa käyttöjärjestelmää ei päätelty MacBook-sanasta.
+Luonnokset ja käytöstä poistetut tietueet jäivät molemmissa kokeissa haun
+ulkopuolelle, vaikka niiden kyselyt saattoivat tuottaa muita vääriä osumia.
+
+### Tietokannan säilyminen ja regressiotestit
+
+Ensin otettiin varmuuskopio ja testattiin migraatio käyttäjän tietokannan
+erillisellä kopiolla. Migraatio lisättiin vasta hyväksyttyjen testien jälkeen
+nykyiseen `data/solutions.sqlite3`-tiedostoon: **2/2 tietuetta ja kaikkien
+aiempien sarakkeiden arvot säilyivät**, mukaan lukien tekstit, tilat,
+revisionumerot, vahvistukset ja poistamisen syyt. Kolme uutta arvoa ovat
+kaikissa vanhoissa tietueissa `NULL`. SQLite-eheystarkistus hyväksyttiin.
+Tiedoston tarkistussumma muuttui skeemalisäyksen vuoksi; se ei ole
+bittitasolla sama tiedosto. Varmuuskopio on Gitin ulkopuolella hakemistossa
+`data/backups/environment-migration-20261024T091105920843Z`.
+
+**209/209 Python-testiä** ja laajennettu ratkaisumuistin JavaScript-testi
+hyväksyttiin. Uudet testit kattavat migraation säilyvyyden, toistettavuuden
+ja rollbackin, kaikki kolme ristiriitaa molemmilla hakutavoilla, puuttuvat
+tiedot, kokorajat ja validoinnin, rajauksen ennen top-3-valintaa,
+välimuistin vaihtuvat rajaukset, tilasuodatuksen, HTTP-kentät sekä lomakkeen
+ja hakurajausten kulun käyttöliittymässä. JavaScript-testi käyttää
+DOM-korviketta; uutta oikean selaimen koetta ei tässä ajettu.
+
+### Toistaminen ja paikalliset todisteet
+
+```powershell
+& .\.venv\Scripts\python.exe -B -m unittest discover -s tests
+node .\tests\ui_memory_test.cjs
+& .\.venv\Scripts\python.exe -B .\tests\evaluate_memory_environment.py --split development
+& .\.venv\Scripts\python.exe -B .\tests\evaluate_memory_environment.py --split final
+```
+
+Loppuarviointi vaatii paikallisen
+`data/environment-evaluation/implementation-freeze.json`-tiedoston ja
+jäädytystä vastaavat lähdekoodin sekä aineiston tarkistussummat. Nykyisessä
+worktreessä jäädytys on tallessa. Muutetun toteutuksen arviointi edellyttää
+uutta erillistä jäädytystä ja uusia loppuarviointikyselyjä.
+
+- [Kehityskokeen kaikki kyselyt ja pisteet](../data/environment-evaluation/development-20261024T090227966419Z/report.md)
+- [Loppuarvioinnin kaikki kyselyt, hylkäykset ja puuttuvat tiedot](../data/environment-evaluation/final-20261024T090439121704Z/report.md)
+- Loppuarvioinnin `ranking-diagnostics.json` näyttää F11- ja F17-järjestysten syyt.
+- Kummankin raportin vieressä ovat koneelliset tulokset, testitietokanta,
+  vektorivälimuisti, aineistokopio ja asennettujen riippuvuuksien versiot.
+- Käyttäjän migraation tarkistus: `data/environment-evaluation/user-database-migration.json`.
+
+Paikalliset raporttilinkit toimivat tässä worktreessä. Tietokantoja,
+varmuuskopioita ja paikallisia malli- tai vektorivälimuisteja ei lisätä Gitiin.
+Ulkoisia API-kutsuja ei tehty, muutoksia ei pushattu eikä vanhaa projektia
+muutettu. Uusi näkymä käynnistettiin paikallisesti osoitteeseen
+`http://127.0.0.1:8502/memory` ilman API-avainta. Palvelimen
+uudelleenkäynnistyksen jälkeen selain on päivitettävä.

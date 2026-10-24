@@ -50,6 +50,44 @@ Ympäristön soveltuvuuden tarkistaa tukihenkilö. Nykyiset rajatut vaaratilante
 tunnistussäännöt keskeyttävät haun/API-kutsun tunnistetussa tapauksessa.
 Ne eivät tunnista kaikkia vaaroja tai tietoturvatilanteita.
 
+## Rakenteiset ympäristötiedot
+
+Ratkaisulle voi tallentaa vapaan ympäristökuvauksen lisäksi valinnaiset
+käyttöjärjestelmän, tuotteen ja tuotteen version. Haussa on samat kolme
+rajausta. Täytä tiedot itse; kuvaustekstistä tai vanhoista tietueista ei
+päätellä arvoja automaattisesti.
+
+- Kahden ilmoitetun arvon ristiriita sulkee tietueen pois jo ennen hakua ja
+  kolmen tuloksen rajausta. Tämä koskee sekä sana- että vektorihakua.
+- Jos arvo puuttuu tietueesta tai hakurajauksista, ehdokas merkitään
+  **Ympäristö tarkistettava**. Käyttöliittymä erottaa tietueesta ja hausta
+  puuttuvat kentät. Tuntematon tieto ei tarkoita yhteensopivuutta.
+- Jos kaikki kolme tietoa täsmäävät, se kerrotaan erikseen. Tietue on silti
+  samankaltainen ehdokas: oire, organisaatio ja muu ympäristö on tarkistettava.
+  Pelkkä hakupiste tai tietueen aiempi vahvistus ei osoita soveltuvuutta.
+- Vertailu ohittaa kirjainkoon ja ylimääräiset välilyönnit. Muuten nimet ja
+  versiot täsmäävät tarkasti: esimerkiksi `5.2` ja `5.20` ovat eri versioita,
+  eikä `Win 11` -aliasta päätellä samaksi kuin `Windows 11`. Käytä samoja
+  täsmällisiä nimiä tietueessa ja haussa. Versioalueita ei vielä tueta.
+
+Tietokantapäivitys lisää vain kolme tyhjää, valinnaista tekstisaraketta.
+Vanhat tietueet, vapaat kuvaukset, tilat, revisionumerot ja vahvistustiedot
+säilyvät. Päivitys on toistettava ja tapahtuu tietokantatoiminnon kanssa
+samassa transaktiossa. Ota ennen päivitystä varmuuskopio aiemman ohjeen mukaan.
+Rakenteisten tietojen täydentäminen on tavallinen muokkaus: se palauttaa
+ratkaisun luonnokseksi ja vaatii uuden vahvistuksen.
+
+Paikallisen HTTP-rajapinnan kentät ovat `operating_system`, `product` ja
+`product_version`. Haun `filters`-objekti käyttää samoja kenttiä. Tyhjä tai
+`null` tarkoittaa tuntematonta arvoa. Vanhan asiakkaan muokkauspyynnöstä
+puuttuvat uudet kentät säilyttävät jo tallennetut arvot; kentän nimenomainen
+tyhjentäminen poistaa arvon. Vapaa `environment`-kuvaus säilyy ennallaan.
+
+Ristiriitojen suodatus ei ratkaise kaikkia vastausta vailla olevia kyselyjä.
+Erityisesti saman tuotteen eri oireet tai organisaatiot voivat edelleen
+palauttaa samankaltaisia ehdokkaita. Katso mitatut virheet testiraportin
+rakenteisten ympäristötietojen arvioinnista. Hakuraja on edelleen 0,43.
+
 ## API-ehdotukset
 
 Palvelin käyttää nykyisiä `OPENAI_API_KEY`- ja `OPENAI_MODEL`-ympäristömuuttujia.

@@ -13,12 +13,53 @@ from desk import DeskError
 ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get('DESK_MEMORY_DB', str(ROOT / 'data' / 'solutions.sqlite3')))
 FIELDS = {'title': 160, 'problem': 4000, 'environment': 2000, 'solution': 8000}
+ENVIRONMENT_FIELDS = {'operating_system': 80, 'product': 120, 'product_version': 80}
 
 
 def text(value, name, limit, minimum=1):
     if not isinstance(value, str) or not minimum <= len(value.strip()) <= limit:
         raise DeskError(f'{name}: kirjoita {minimum}–{limit} merkkiä.')
     return value.strip()
+
+
+def optional_text(value, name, limit):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise DeskError(f'{name}: kirjoita tekstiä tai jätä tyhjäksi.')
+    value = ' '.join(value.split())
+    if len(value) > limit:
+        raise DeskError(f'{name}: enintään {limit} merkkiä.')
+    return value or None
+
+
+def search_filters(value):
+    if value is None:
+        value = {}
+    if not isinstance(value, dict) or set(value) - ENVIRONMENT_FIELDS.keys():
+        raise DeskError('Virheelliset ympäristörajaukset.')
+    return {key: optional_text(value.get(key), key, limit)
+            for key, limit in ENVIRONMENT_FIELDS.items()}
+
+
+def check_environment(record, requested):
+    # Compare only explicit fields. Free text is never used to infer metadata.
+    conflicts, matched, missing_record, missing_query = [], [], [], []
+    for key in ENVIRONMENT_FIELDS:
+        actual, wanted = record.get(key), requested[key]
+        if not actual:
+            missing_record.append(key)
+        if not wanted:
+            missing_query.append(key)
+        if actual and wanted:
+            if ' '.join(actual.split()).casefold() != wanted.casefold():
+                conflicts.append(key)
+            else:
+                matched.append(key)
+    return {'status': 'conflict' if conflicts else
+            ('needs_review' if missing_record or missing_query else 'declared_match'),
+            'conflicting_fields': conflicts, 'matched_fields': matched,
+            'missing_record_fields': missing_record, 'missing_query_fields': missing_query}
 
 
 @contextmanager
@@ -28,13 +69,19 @@ def database(path):
     db = sqlite3.connect(path, timeout=10)
     db.row_factory = sqlite3.Row
     try:
-        db.execute('''CREATE TABLE IF NOT EXISTS solutions (
-            id TEXT PRIMARY KEY, title TEXT NOT NULL, problem TEXT NOT NULL,
-            environment TEXT NOT NULL, solution TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('draft','verified','retired')),
-            revision INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-            verified_at TEXT, verified_by TEXT, retirement_reason TEXT)''')
         with db:
+            # Keep schema additions and the operation atomic, including DDL.
+            db.execute('BEGIN')
+            db.execute("""CREATE TABLE IF NOT EXISTS solutions (
+                id TEXT PRIMARY KEY, title TEXT NOT NULL, problem TEXT NOT NULL,
+                environment TEXT NOT NULL, solution TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('draft','verified','retired')),
+                revision INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                verified_at TEXT, verified_by TEXT, retirement_reason TEXT)""")
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(solutions)')}
+            for key in ENVIRONMENT_FIELDS:
+                if key not in columns:
+                    db.execute(f'ALTER TABLE solutions ADD COLUMN "{key}" TEXT')
             yield db
     finally:
         db.close()
@@ -58,23 +105,29 @@ class Memory:
 
     def save(self, obj):
         values = {key: text(obj.get(key), key, limit) for key, limit in FIELDS.items()}
+        structured = {key: optional_text(obj[key], key, limit)
+                      for key, limit in ENVIRONMENT_FIELDS.items() if key in obj}
         source = obj.get('id')
         now = timestamp()
         with database(self.path) as db:
             if source is None:
                 source = 'SOL-' + uuid4().hex
                 db.execute('''INSERT INTO solutions
-                    (id,title,problem,environment,solution,status,revision,created_at,updated_at)
-                    VALUES (?,?,?,?,?,'draft',1,?,?)''',
-                           (source, *values.values(), now, now))
+                    (id,title,problem,environment,solution,operating_system,product,product_version,
+                     status,revision,created_at,updated_at)
+                    VALUES (?,?,?,?,?,?,?,?,'draft',1,?,?)''',
+                           (source, *values.values(),
+                            *(structured.get(key) for key in ENVIRONMENT_FIELDS), now, now))
             else:
                 source = text(source, 'id', 80)
                 revision = self._revision(obj)
                 # Every edit removes verification. A retired record must be copied to a new draft.
-                result = db.execute('''UPDATE solutions SET title=?,problem=?,environment=?,solution=?,
+                # Older clients omitting the new fields must not erase existing metadata.
+                extra = ''.join(f', "{key}"=?' for key in structured)
+                result = db.execute(f'''UPDATE solutions SET title=?,problem=?,environment=?,solution=?{extra},
                     status='draft',revision=revision+1,updated_at=?,verified_at=NULL,verified_by=NULL,
                     retirement_reason=NULL WHERE id=? AND revision=? AND status!='retired' ''',
-                                    (*values.values(), now, source, revision))
+                                    (*values.values(), *structured.values(), now, source, revision))
                 if result.rowcount != 1:
                     raise DeskError('Ratkaisu on muuttunut tai poistettu käytöstä. Päivitä lista.', 'memory_conflict', 409)
             return dict(db.execute('SELECT * FROM solutions WHERE id=?', (source,)).fetchone())
@@ -109,18 +162,28 @@ class Memory:
                 raise DeskError('Ratkaisu on muuttunut tai tila ei salli toimintoa. Päivitä lista.', 'memory_conflict', 409)
             return dict(db.execute('SELECT * FROM solutions WHERE id=?', (source,)).fetchone())
 
-    def search(self, query, backend='keyword', model=None):
+    def search(self, query, backend='keyword', model=None, filters=None):
         from search import VectorSearch, keyword_search, SearchError
         query = text(query, 'Ongelman kuvaus', 4000, 5)
+        requested = search_filters(filters)
         if backend not in ('keyword', 'vector'):
             raise DeskError('Tuntematon hakutapa.')
         stopped = safety_check(query)
         if stopped:
             return stopped
         records = self.list('verified')
-        if not records:
-            return {'hits': [], 'backend': backend, 'state': 'empty'}
-        guides = [as_guide(row) for row in records]
+        checks = {row['id']: check_environment(row, requested) for row in records}
+        rejected = [{'id': row['id'], 'conflicting_fields': checks[row['id']]['conflicting_fields']}
+                    for row in records if checks[row['id']]['status'] == 'conflict']
+        eligible = [row for row in records if checks[row['id']]['status'] != 'conflict']
+        output = {'hits': [], 'backend': backend, 'state': 'empty' if not records else 'insufficient',
+                  'message': 'Samankaltaisuus ei osoita soveltuvuutta. Tarkista oireet ja ympäristö.',
+                  'environment_filter': {'requested': requested, 'excluded_count': len(rejected),
+                                         'excluded': rejected, 'review_hit_count': 0}}
+        if not eligible:
+            return output
+        # Exclude conflicts before top-k selection, so they cannot displace valid candidates.
+        guides = [as_guide(row) for row in eligible]
         try:
             if backend == 'vector':
                 result = VectorSearch(guides, model=model,
@@ -130,10 +193,13 @@ class Memory:
         except SearchError as error:
             raise DeskError(str(error), 'search_unavailable', 503,
                             'Valitse sanahaku tai tarkista paikallisen vektorihaun asennus.') from None
-        by_id = {row['id']: row for row in records}
-        # Candidate scores are similarities, not probabilities or proof of applicability.
-        return {'hits': [{'record': by_id[h['guide_id']], 'score': h['score']} for h in result['hits']],
-                'backend': backend, 'state': 'candidates' if result['hits'] else 'insufficient'}
+        by_id = {row['id']: row for row in eligible}
+        output['hits'] = [{'record': by_id[hit['guide_id']], 'score': hit['score'],
+                           'environment_check': checks[hit['guide_id']]} for hit in result['hits']]
+        output['state'] = 'candidates' if output['hits'] else 'insufficient'
+        output['environment_filter']['review_hit_count'] = sum(
+            hit['environment_check']['status'] == 'needs_review' for hit in output['hits'])
+        return output
 
 
 def as_guide(row):
@@ -200,7 +266,7 @@ def dispatch(action, obj):
     if action == 'retire':
         return {'record': memory.transition(obj, 'retired')}
     if action == 'search':
-        return memory.search(obj.get('query'), obj.get('backend', 'keyword'))
+        return memory.search(obj.get('query'), obj.get('backend', 'keyword'), filters=obj.get('filters'))
     if action == 'suggest':
         return suggest(obj)
     raise DeskError('Tuntematon ratkaisumuistin toiminto.', 'not_found', 404)

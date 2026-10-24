@@ -20,9 +20,11 @@ button:disabled{opacity:.5;cursor:wait}input[type=checkbox]{width:auto}.check{fo
 #notice{padding:12px 16px;border-radius:7px;margin:18px 0;white-space:pre-wrap;border:1px solid #b6ccd6;background:#e8f1f6}
 #notice:empty{display:none}#notice.error{background:#fff0ed;border-color:#cf7d70;color:#7c2020}
 .empty{color:#536674;font-style:italic}details summary{cursor:pointer;font-weight:600}details{margin-top:12px}
+.environment-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .library{margin-top:12px}.library .card{margin-top:15px}pre{white-space:pre-wrap;font:inherit;overflow-wrap:anywhere}
-@media(max-width:780px){.grid{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}body{padding:20px 12px}}
+@media(max-width:780px){.grid,.environment-fields{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}body{padding:20px 12px}}
 </style>
+<datalist id="operating-systems"><option value="Windows 11"><option value="Windows 10"><option value="macOS 15"><option value="Ubuntu 24.04"><option value="Debian 12"><option value="Android 15"></datalist>
 <header><div><span class="badge">AI Service Desk · kehitysversio</span><h1>Ratkaisumuisti</h1></div><a href="/">Alkuperäinen PoC</a></header>
 <p class="lead">Löydä aiemmin toiminut ratkaisu ja säilytä uusi tieto seuraavaa kertaa varten. Hakutulokset sisältävät vain ihmisen vahvistamia ratkaisuja.</p>
 <div id="notice" role="status" aria-live="polite"></div>
@@ -30,6 +32,12 @@ button:disabled{opacity:.5;cursor:wait}input[type=checkbox]{width:auto}.check{fo
 <div><section><h2>1. Kuvaa ongelma</h2>
 <label for="query">Oireet, virheilmoitus ja käytössä oleva ympäristö</label>
 <textarea id="query" maxlength="4000" placeholder="Esim. Harjoitusyrityksen VPN-asiakas 5.2 näyttää virheen E42 Windows 11 -koneella."></textarea>
+<div class="environment-fields">
+<div><label for="filter-operating_system">Käyttöjärjestelmä</label><input id="filter-operating_system" list="operating-systems" maxlength="80" placeholder="Ei ilmoitettu"></div>
+<div><label for="filter-product">Tuote</label><input id="filter-product" maxlength="120" placeholder="Esim. AuroraVPN"></div>
+<div><label for="filter-product_version">Tuotteen versio</label><input id="filter-product_version" maxlength="80" placeholder="Esim. 5.2"></div>
+</div>
+<p class="muted">Rajaukset ovat valinnaisia. Ristiriitaiset tiedot suljetaan pois hausta. Puuttuvat tiedot jäävät tarkistettaviksi; niitä ei päätellä ongelmakuvauksesta. Käytä samaa tuotenimeä ja täsmällistä versiota kuin tietueessa.</p>
 <label for="backend">Hakutapa</label><select id="backend"><option value="keyword">Sanahaku – ei lisäasennuksia</option><option value="vector">Vektorihaku – paikallinen upotusmalli</option></select>
 <div class="row"><button id="search">Hae vahvistettuja ratkaisuja</button><button class="secondary" id="copy-query">Kopioi uuden ratkaisun pohjaksi</button></div>
 <p class="muted">Hakupisteet eivät ole varmuusprosentteja. Tarkista aina oireiden, laitemallin ja version vastaavuus.</p>
@@ -44,6 +52,12 @@ button:disabled{opacity:.5;cursor:wait}input[type=checkbox]{width:auto}.check{fo
 <label for="title">Otsikko</label><input id="title" maxlength="160" required>
 <label for="problem">Ongelman kuvaus</label><textarea id="problem" maxlength="4000" required></textarea>
 <label for="environment">Ympäristö, laite- ja ohjelmaversiot</label><textarea id="environment" maxlength="2000" required></textarea>
+<div class="environment-fields">
+<div><label for="operating_system">Käyttöjärjestelmä (valinnainen)</label><input id="operating_system" list="operating-systems" maxlength="80"></div>
+<div><label for="product">Tuote (valinnainen)</label><input id="product" maxlength="120"></div>
+<div><label for="product_version">Tuotteen versio (valinnainen)</label><input id="product_version" maxlength="80"></div>
+</div>
+<p class="muted">Vapaa ympäristökuvaus säilyy. Täytä erilliset tiedot itse; tyhjä kenttä tarkoittaa tuntematonta, ei yleistä yhteensopivuutta.</p>
 <label for="solution">Ratkaisuvaiheet ja soveltuvuuden rajat</label><textarea id="solution" maxlength="8000" required></textarea>
 <div class="row"><button type="submit">Tallenna luonnos</button><button type="button" id="new" class="secondary">Tyhjennä lomake</button></div>
 </form>
@@ -57,6 +71,9 @@ button:disabled{opacity:.5;cursor:wait}input[type=checkbox]{width:auto}.check{fo
 'use strict';
 const token='__TOKEN__';
 const $=id=>document.getElementById(id);
+const environmentFields=['operating_system','product','product_version'];
+const environmentLabels={operating_system:'käyttöjärjestelmä',product:'tuote',product_version:'tuotteen versio'};
+const editorFields=['title','problem','environment','solution',...environmentFields];
 let editing=null, generation=0, busy=false;
 const states={draft:'Luonnos',verified:'Vahvistettu',retired:'Poistettu käytöstä'};
 function notify(message,error=false){$('notice').textContent=message;$('notice').className=error?'error':'';}
@@ -68,12 +85,13 @@ async function api(action,body={}){
 async function run(work){if(busy)return;busy=true;document.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=true);
  try{await work();}catch(error){notify(error.message,true);}finally{busy=false;document.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=false);}}
 function clearHits(){generation++;$('hits').replaceChildren(node('p','Tietopohja muuttui. Tee haku uudelleen.','empty'));}
-for(const id of ['query','backend'])$(id).addEventListener(id==='query'?'input':'change',()=>{generation++;$('hits').replaceChildren(node('p','Kysymys tai hakutapa muuttui. Tee haku uudelleen.','empty'));});
+for(const id of ['query','backend',...environmentFields.map(key=>'filter-'+key)])$(id).addEventListener(id==='backend'?'change':'input',()=>{generation++;$('hits').replaceChildren(node('p','Haku tai ympäristörajaukset muuttuivat. Tee haku uudelleen.','empty'));});
 function clearEditor(){editing=null;$('editor').reset();$('limitations').textContent='';$('editing').textContent='Uusi luonnos. Tallennus ei vielä lisää ratkaisua hakutuloksiin.';}
-function openEditor(record){editing=record;for(const key of ['title','problem','environment','solution'])$(key).value=record[key];$('limitations').textContent='';$('editing').textContent='Muokattavana '+record.id+' · versio '+record.revision+'. Tallennus muuttaa ratkaisun luonnokseksi.';$('title').focus();}
+function openEditor(record){editing=record;for(const key of editorFields)$(key).value=record[key]??'';$('limitations').textContent='';$('editing').textContent='Muokattavana '+record.id+' · versio '+record.revision+'. Tallennus muuttaa ratkaisun luonnokseksi.';$('title').focus();}
 function recordCard(record){
  const box=node('article',undefined,'card');box.append(node('h3',record.title),node('span',states[record.status]+' · v'+record.revision,'badge'));
  box.append(node('p','Ongelma: '+record.problem),node('p','Ympäristö: '+record.environment));
+ for(const key of environmentFields)box.append(node('p',environmentLabels[key]+': '+(record[key]||'Ei ilmoitettu'),'muted'));
  const details=node('details');details.append(node('summary','Näytä ratkaisuvaiheet'),node('p',record.solution));box.append(details);
  box.append(node('p','Tunniste: '+record.id+'\nPäivitetty: '+new Date(record.updated_at).toLocaleString('fi-FI'),'muted'));
  if(record.verified_at)box.append(node('p','Vahvistanut: '+record.verified_by+' · '+new Date(record.verified_at).toLocaleString('fi-FI'),'muted'));
@@ -95,15 +113,18 @@ async function refresh(){const result=await api('list');$('records').replaceChil
   }box.append(actions);$('records').append(box);
  }
 }
-$('search').onclick=()=>run(async()=>{const requestGeneration=++generation;$('hits').replaceChildren();notify('Haetaan…');const result=await api('search',{query:$('query').value,backend:$('backend').value});
+$('search').onclick=()=>run(async()=>{const requestGeneration=++generation;$('hits').replaceChildren();notify('Haetaan…');const result=await api('search',{query:$('query').value,backend:$('backend').value,filters:Object.fromEntries(environmentFields.map(key=>[key,$('filter-'+key).value]))});
  if(requestGeneration!==generation)return;
  if(result.state==='safety_stop'){notify(result.message,true);return;}
- for(const hit of result.hits){const box=recordCard(hit.record);box.append(node('p','Hakupisteet: '+hit.score+' · tarkista soveltuvuus','muted'));$('hits').append(box);}
- if(!result.hits.length)$('hits').append(node('p',result.state==='empty'?'Vahvistettuja ratkaisuja ei vielä ole.':'Sopivaa hakutulosta ei löytynyt.','empty'));
- notify('Haku valmis. Tulokset ovat tarkistettavia ratkaisuehdokkaita.');});
-$('copy-query').onclick=()=>{clearEditor();$('problem').value=$('query').value;$('environment').focus();};
+ for(const hit of result.hits){const box=recordCard(hit.record),check=hit.environment_check;
+ box.append(node('p',check?.status==='declared_match'?'Käyttöjärjestelmä, tuote ja versio täsmäävät. Tarkista silti oireet ja muu ympäristö.':'Ympäristö tarkistettava: puuttuvia tietoja.','muted'));
+ if(check)for(const [source,keys] of [['Ratkaisusta puuttuu',check.missing_record_fields],['Hausta puuttuu',check.missing_query_fields]])if(keys?.length)box.append(node('p',source+': '+keys.map(key=>environmentLabels[key]).join(', '),'muted'));
+ box.append(node('p','Hakupisteet: '+hit.score+' · samankaltaisuus ei osoita soveltuvuutta','muted'));$('hits').append(box);}
+ if(!result.hits.length)$('hits').append(node('p',result.state==='empty'?'Vahvistettuja ratkaisuja ei vielä ole.':'Hakuehdokkaita ei löytynyt. Tarvitaan lisätietoja tai uusi ratkaisu.','empty'));
+ notify((result.hits.length?'Haku valmis. Samankaltaiset ehdokkaat on tarkistettava ennen käyttöä.':'Hakuehdokkaita ei löytynyt.')+' Ympäristöristiriidan vuoksi rajattu pois: '+(result.environment_filter?.excluded_count||0)+'. Puuttuvia tietoja sisältäviä osumia: '+(result.environment_filter?.review_hit_count||0)+'.');});
+$('copy-query').onclick=()=>{clearEditor();$('problem').value=$('query').value;for(const key of environmentFields)$(key).value=$('filter-'+key).value;$('environment').focus();};
 $('new').onclick=clearEditor;
-$('editor').onsubmit=event=>{event.preventDefault();run(async()=>{const body=Object.fromEntries(['title','problem','environment','solution'].map(key=>[key,$(key).value]));if(editing){body.id=editing.id;body.revision=editing.revision;}
+$('editor').onsubmit=event=>{event.preventDefault();run(async()=>{const body=Object.fromEntries(editorFields.map(key=>[key,$(key).value]));if(editing){body.id=editing.id;body.revision=editing.revision;}
  await api('save',body);clearEditor();clearHits();await refresh();notify('Luonnos tallennettiin. Kokeile ratkaisu ja vahvista se ennen hakukäyttöä.');});};
 $('suggest').onclick=()=>run(async()=>{
  if(!$('consent').checked)throw new Error('Valitse ensin lupa tietojen lähettämiseen tekoälypalvelulle.');

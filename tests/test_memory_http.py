@@ -53,6 +53,25 @@ class MemoryHTTPTests(unittest.TestCase):
         self.assertEqual(self.post('search', {'query': 'VPN E42'})[1]['hits'], [])
         self.assertEqual(self.post('list', {})[1]['records'][0]['status'], 'retired')
 
+    def test_structured_environment_roundtrip_and_http_filtering(self):
+        fields = dict(operating_system='Windows 11', product='AuroraVPN', product_version='5.2')
+        status, saved = self.post('save', dict(SAMPLE, **fields))
+        self.assertEqual(status, 200)
+        row = saved['record']
+        self.assertEqual({key:row[key] for key in fields}, fields)
+        self.post('verify',dict(id=row['id'],revision=row['revision'],confirmed=True,verified_by='HTTP-testi'))
+        status, result = self.post('search',dict(query='VPN E42',filters=fields))
+        self.assertEqual(status,200)
+        self.assertEqual(result['hits'][0]['environment_check']['status'],'declared_match')
+        status, rejected = self.post('search',dict(query='VPN E42',filters=dict(fields,product_version='6.1')))
+        self.assertEqual(status,200)
+        self.assertEqual(rejected['hits'],[])
+        self.assertEqual(rejected['environment_filter']['excluded'][0]['conflicting_fields'],['product_version'])
+        status, unknown = self.post('search',dict(query='VPN E42',filters=dict(fields,product_version=None)))
+        self.assertEqual(status,200)
+        self.assertEqual(unknown['hits'][0]['environment_check']['status'],'needs_review')
+        self.assertEqual(self.post('search',dict(query='VPN E42',filters=[]))[0],400)
+
     def test_every_memory_action_requires_session_token(self):
         for action in ('list', 'save', 'verify', 'retire', 'search', 'suggest'):
             self.assertEqual(self.post(action, {}, token='wrong')[0], 403)
