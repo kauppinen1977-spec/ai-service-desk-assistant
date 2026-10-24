@@ -42,6 +42,20 @@ def search_filters(value):
             for key, limit in ENVIRONMENT_FIELDS.items()}
 
 
+# Deliberately narrow aliases: never strip OS versions, minor versions or editions.
+OS_ALIASES = {
+    'win 10': 'windows 10', 'win10': 'windows 10', 'windows10': 'windows 10',
+    'win 11': 'windows 11', 'win11': 'windows 11', 'windows11': 'windows 11',
+    'mac os 15': 'macos 15', 'macos15': 'macos 15',
+    'ubuntu24.04': 'ubuntu 24.04', 'debian12': 'debian 12', 'android15': 'android 15',
+}
+
+
+def comparison_value(key, value):
+    value = ' '.join(value.split()).casefold()
+    return OS_ALIASES.get(value, value) if key == 'operating_system' else value
+
+
 def check_environment(record, requested):
     # Compare only explicit fields. Free text is never used to infer metadata.
     conflicts, matched, missing_record, missing_query = [], [], [], []
@@ -52,7 +66,7 @@ def check_environment(record, requested):
         if not wanted:
             missing_query.append(key)
         if actual and wanted:
-            if ' '.join(actual.split()).casefold() != wanted.casefold():
+            if comparison_value(key, actual) != comparison_value(key, wanted):
                 conflicts.append(key)
             else:
                 matched.append(key)
@@ -176,8 +190,9 @@ class Memory:
         rejected = [{'id': row['id'], 'conflicting_fields': checks[row['id']]['conflicting_fields']}
                     for row in records if checks[row['id']]['status'] == 'conflict']
         eligible = [row for row in records if checks[row['id']]['status'] != 'conflict']
-        output = {'hits': [], 'backend': backend, 'state': 'empty' if not records else 'insufficient',
-                  'message': 'Samankaltaisuus ei osoita soveltuvuutta. Tarkista oireet ja ympäristö.',
+        output = {'hits': [], 'compatible_hits': [], 'review_hits': [], 'backend': backend, 'state': 'empty' if not records else 'insufficient',
+                  'message': 'Ilmoitettujen ympäristötietojen perusteella yhteensopivia ehdokkaita ei löytynyt. '
+                             'Samankaltaisuus ei osoita soveltuvuutta. Tarkista oireet ja ympäristö.',
                   'environment_filter': {'requested': requested, 'excluded_count': len(rejected),
                                          'excluded': rejected, 'review_hit_count': 0}}
         if not eligible:
@@ -187,7 +202,8 @@ class Memory:
         try:
             if backend == 'vector':
                 result = VectorSearch(guides, model=model,
-                                      cache_path=self.path.with_suffix('.vectors.json')).query(query)
+                                      cache_path=self.path.with_suffix('.vectors.json')).query(
+                                          query, apply_poc_heuristics=False)
             else:
                 result = keyword_search(query, guides)
         except SearchError as error:
@@ -196,9 +212,15 @@ class Memory:
         by_id = {row['id']: row for row in eligible}
         output['hits'] = [{'record': by_id[hit['guide_id']], 'score': hit['score'],
                            'environment_check': checks[hit['guide_id']]} for hit in result['hits']]
+        output['compatible_hits'] = [hit for hit in output['hits']
+                                     if hit['environment_check']['status'] == 'declared_match']
+        output['review_hits'] = [hit for hit in output['hits']
+                                 if hit['environment_check']['status'] == 'needs_review']
+        if output['compatible_hits']:
+            output['message'] = ('Yhteensopivuus koskee vain ilmoitettuja ympäristötietoja. '
+                                 'Se ei takaa ratkaisun toimivuutta; tarkista oireet ja muu ympäristö.')
         output['state'] = 'candidates' if output['hits'] else 'insufficient'
-        output['environment_filter']['review_hit_count'] = sum(
-            hit['environment_check']['status'] == 'needs_review' for hit in output['hits'])
+        output['environment_filter']['review_hit_count'] = len(output['review_hits'])
         return output
 
 

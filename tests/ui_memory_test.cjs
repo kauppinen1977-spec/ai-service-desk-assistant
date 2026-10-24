@@ -7,7 +7,7 @@ function element(tag='div') {return {tag,value:'',textContent:'',children:[],dis
 const html=fs.readFileSync('memory.html','utf8');
 for(const [,id] of html.matchAll(/\bid="([^"]+)"/g))elements[id]=element();
 elements.backend.value='keyword';
-const calls=[];let rows=[],pendingSearch=null,holdSearch=false,environmentStatus='needs_review',emptySearch=false;
+const calls=[];let rows=[],pendingSearch=null,holdSearch=false,environmentStatus='needs_review',emptySearch=false,mixedSearch=false;
 const row={id:'SOL-test',title:'<img src=x onerror=alert(1)>',problem:'VPN E42',environment:'Harjoitusympäristö 5.2',solution:'Testikorjaus',
  status:'draft',revision:1,updated_at:'2026-10-24T10:00:00Z'};
 const response=data=>({ok:true,json:async()=>data});
@@ -18,7 +18,12 @@ const context={document:{getElementById:id=>elements[id],createElement:element,q
   if(action==='save'){rows=[{...row,...body}];return response({record:rows[0]});}
   if(action==='verify'){rows=[{...rows[0],status:'verified',revision:2,verified_by:body.verified_by,verified_at:row.updated_at}];return response({record:rows[0]});}
   if(action==='retire'){rows=[{...rows[0],status:'retired',revision:3,retirement_reason:body.reason}];return response({record:rows[0]});}
-  if(action==='search'){if(holdSearch)return new Promise(resolve=>pendingSearch=resolve);return response({state:'candidates',hits:(emptySearch?[]:rows.filter(r=>r.status==='verified')).map(record=>({record,score:1,environment_check:{status:environmentStatus,missing_record_fields:environmentStatus==='needs_review'?['product_version']:[],missing_query_fields:[]}}))});}
+  if(action==='search'){
+   if(holdSearch)return new Promise(resolve=>pendingSearch=resolve);
+   const hits=(emptySearch?[]:rows.filter(r=>r.status==='verified')).map(record=>({record,score:1,environment_check:{status:environmentStatus,missing_record_fields:environmentStatus==='needs_review'?['product_version']:[],missing_query_fields:[]}}));
+   if(mixedSearch)hits.push({record:{...rows[0],id:'SOL-review',title:'Puutteellinen testiehdokas'},score:.5,environment_check:{status:'needs_review',missing_record_fields:['operating_system'],missing_query_fields:[]}});
+   return response({state:'candidates',hits,compatible_hits:hits.filter(hit=>hit.environment_check.status==='declared_match'),review_hits:hits.filter(hit=>hit.environment_check.status==='needs_review')});
+  }
   if(action==='suggest')return response({state:'unverified',suggestion:{title:'API-luonnos',solution:'Kokeile tätä.',limitations:'Ei testattu.'}});
   throw Error(action);
  }};
@@ -26,6 +31,10 @@ vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],context);
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
 function all(e){return [e,...e.children.flatMap(all)]}
 function findAction(label){return all(elements.records).find(e=>e.tag==='button'&&e.textContent===label);}
+function candidateGroup(label){return elements.hits.children.find(e=>e.children.some(child=>child.tag==='h3'&&child.textContent===label));}
+const compatibleLabel='Ilmoitettujen ympäristötietojen perusteella yhteensopivat ehdokkaat';
+const reviewLabel='Puuttuvien tietojen vuoksi tarkistettavat ehdokkaat';
+
 (async()=>{
  await settle();assert.deepEqual(calls.map(c=>c.action),['list']);
  elements['filter-operating_system'].value='Windows 11';elements['filter-product'].value='HarjoitusVPN';elements['filter-product_version'].value='5.2';
@@ -50,8 +59,19 @@ function findAction(label){return all(elements.records).find(e=>e.tag==='button'
  assert.equal(calls.filter(c=>c.action==='search').at(-1).body.filters.product_version,'5.2');
  assert(all(elements.hits).some(e=>e.textContent.includes('Ympäristö tarkistettava')));
  assert(all(elements.hits).some(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio'));
+ assert(all(candidateGroup(compatibleLabel)).some(e=>e.textContent.includes('yhteensopivia ehdokkaita ei löytynyt')));
+ assert(all(candidateGroup(reviewLabel)).some(e=>e.textContent===row.title));
+ assert(all(elements.hits).some(e=>e.textContent.includes('ei takaa ratkaisun toimivuutta')));
+
  environmentStatus='declared_match';await elements.search.onclick();
  assert(all(elements.hits).some(e=>e.textContent.includes('Käyttöjärjestelmä, tuote ja versio täsmäävät. Tarkista silti')));
+ assert(all(candidateGroup(compatibleLabel)).some(e=>e.textContent===row.title));
+ assert(!all(candidateGroup(reviewLabel)).some(e=>e.textContent===row.title));
+ mixedSearch=true;await elements.search.onclick();
+ assert(all(candidateGroup(compatibleLabel)).some(e=>e.textContent===row.title));
+ assert(all(candidateGroup(reviewLabel)).some(e=>e.textContent==='Puutteellinen testiehdokas'));
+ assert(!all(candidateGroup(compatibleLabel)).some(e=>e.textContent==='Puutteellinen testiehdokas'));mixedSearch=false;
+
  for(const key of ['operating_system','product','product_version']){
   elements['filter-'+key].handlers.input();assert(!all(elements.hits).some(e=>e.textContent===row.title),'filter changes invalidate results');
   await elements.search.onclick();

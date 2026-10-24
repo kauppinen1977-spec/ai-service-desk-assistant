@@ -116,12 +116,22 @@ async function refresh(){const result=await api('list');$('records').replaceChil
 $('search').onclick=()=>run(async()=>{const requestGeneration=++generation;$('hits').replaceChildren();notify('Haetaan…');const result=await api('search',{query:$('query').value,backend:$('backend').value,filters:Object.fromEntries(environmentFields.map(key=>[key,$('filter-'+key).value]))});
  if(requestGeneration!==generation)return;
  if(result.state==='safety_stop'){notify(result.message,true);return;}
- for(const hit of result.hits){const box=recordCard(hit.record),check=hit.environment_check;
- box.append(node('p',check?.status==='declared_match'?'Käyttöjärjestelmä, tuote ja versio täsmäävät. Tarkista silti oireet ja muu ympäristö.':'Ympäristö tarkistettava: puuttuvia tietoja.','muted'));
- if(check)for(const [source,keys] of [['Ratkaisusta puuttuu',check.missing_record_fields],['Hausta puuttuu',check.missing_query_fields]])if(keys?.length)box.append(node('p',source+': '+keys.map(key=>environmentLabels[key]).join(', '),'muted'));
- box.append(node('p','Hakupisteet: '+hit.score+' · samankaltaisuus ei osoita soveltuvuutta','muted'));$('hits').append(box);}
+ const compatible=result.compatible_hits??result.hits.filter(hit=>hit.environment_check?.status==='declared_match');
+ const review=result.review_hits??result.hits.filter(hit=>hit.environment_check?.status!=='declared_match');
+ $('hits').append(node('p','Ilmoitettujen tietojen yhteensopivuus tai puuttuvien tietojen tarkistusmerkintä ei takaa ratkaisun toimivuutta.','muted'));
+ for(const [title,groupHits,empty] of [
+  ['Ilmoitettujen ympäristötietojen perusteella yhteensopivat ehdokkaat',compatible,'Ilmoitettujen ympäristötietojen perusteella yhteensopivia ehdokkaita ei löytynyt tästä hakutuloksesta.'],
+  ['Puuttuvien tietojen vuoksi tarkistettavat ehdokkaat',review,'Ei puuttuvien tietojen vuoksi tarkistettavia ehdokkaita.']]){
+  const group=node('div');group.append(node('h3',title));
+  if(!groupHits.length)group.append(node('p',empty,'empty'));
+  for(const hit of groupHits){const box=recordCard(hit.record),check=hit.environment_check;
+   box.append(node('p',check?.status==='declared_match'?'Käyttöjärjestelmä, tuote ja versio täsmäävät. Tarkista silti oireet ja muu ympäristö.':'Ympäristö tarkistettava: puuttuvia tietoja.','muted'));
+   if(check)for(const [source,keys] of [['Ratkaisusta puuttuu',check.missing_record_fields],['Hausta puuttuu',check.missing_query_fields]])if(keys?.length)box.append(node('p',source+': '+keys.map(key=>environmentLabels[key]).join(', '),'muted'));
+   box.append(node('p','Hakupisteet: '+hit.score+' · samankaltaisuus ei osoita soveltuvuutta','muted'));group.append(box);
+  }$('hits').append(group);
+ }
  if(!result.hits.length)$('hits').append(node('p',result.state==='empty'?'Vahvistettuja ratkaisuja ei vielä ole.':'Hakuehdokkaita ei löytynyt. Tarvitaan lisätietoja tai uusi ratkaisu.','empty'));
- notify((result.hits.length?'Haku valmis. Samankaltaiset ehdokkaat on tarkistettava ennen käyttöä.':'Hakuehdokkaita ei löytynyt.')+' Ympäristöristiriidan vuoksi rajattu pois: '+(result.environment_filter?.excluded_count||0)+'. Puuttuvia tietoja sisältäviä osumia: '+(result.environment_filter?.review_hit_count||0)+'.');});
+ notify((result.hits.length?'Haku valmis. Ehdokkaiden toimivuutta ei ole varmistettu.':'Hakuehdokkaita ei löytynyt.')+' Ilmoitettujen tietojen perusteella yhteensopivia: '+compatible.length+'. Tarkistettavia: '+review.length+'. Ympäristöristiriidan vuoksi rajattu pois: '+(result.environment_filter?.excluded_count||0)+'.');});
 $('copy-query').onclick=()=>{clearEditor();$('problem').value=$('query').value;for(const key of environmentFields)$(key).value=$('filter-'+key).value;$('environment').focus();};
 $('new').onclick=clearEditor;
 $('editor').onsubmit=event=>{event.preventDefault();run(async()=>{const body=Object.fromEntries(editorFields.map(key=>[key,$(key).value]));if(editing){body.id=editing.id;body.revision=editing.revision;}

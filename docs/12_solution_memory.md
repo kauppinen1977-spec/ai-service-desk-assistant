@@ -65,10 +65,35 @@ päätellä arvoja automaattisesti.
 - Jos kaikki kolme tietoa täsmäävät, se kerrotaan erikseen. Tietue on silti
   samankaltainen ehdokas: oire, organisaatio ja muu ympäristö on tarkistettava.
   Pelkkä hakupiste tai tietueen aiempi vahvistus ei osoita soveltuvuutta.
-- Vertailu ohittaa kirjainkoon ja ylimääräiset välilyönnit. Muuten nimet ja
-  versiot täsmäävät tarkasti: esimerkiksi `5.2` ja `5.20` ovat eri versioita,
-  eikä `Win 11` -aliasta päätellä samaksi kuin `Windows 11`. Käytä samoja
-  täsmällisiä nimiä tietueessa ja haussa. Versioalueita ei vielä tueta.
+- Vertailu ohittaa kirjainkoon ja ylimääräiset välilyönnit. Tunnetut
+  käyttöjärjestelmän kirjoitusasut, kuten `Win 11`, `win11` ja `Windows11`,
+  vastaavat arvoa `Windows 11`. Samoin `Win 10` vastaa Windows 10:tä,
+  `Mac OS 15` macOS 15:tä sekä `Ubuntu24.04`, `Debian12` ja `Android15`
+  niiden välilyönnillisiä nimiä. Normalisointi koskee vain vertailua eikä
+  muuta tallennettuja arvoja. Eri käyttöjärjestelmäversioita tai editioita
+  ei yhdistetä. Tuote- ja versiokenttiin ei sovelleta OS-aliaksia:
+  esimerkiksi `5.2` ja `5.20` ovat edelleen eri versioita.
+  Versioalueita ja mielivaltaisia kirjoitusasujen arvauksia ei tueta.
+
+Tulokset erotetaan kahteen ryhmään:
+
+1. **Ilmoitettujen ympäristötietojen perusteella yhteensopivat ehdokkaat**:
+   käyttöjärjestelmä, tuote ja versio on ilmoitettu molemmin puolin ja ne
+   täsmäävät. Merkintä ei takaa oireen, organisaation tai korjauksen sopivuutta.
+2. **Puuttuvien tietojen vuoksi tarkistettavat ehdokkaat**: vähintään yksi
+   tieto puuttuu tietueesta tai hakurajauksista. Puuttuminen ei tarkoita
+   yhteensopivuutta eikä merkintä lupaa ratkaisun toimivuutta.
+
+Jos ensimmäinen ryhmä on tyhjä, se kerrotaan selvästi, vaikka tarkistettavia
+osumia olisi. Molemmat ryhmät muodostetaan saman enintään kolmen osuman
+hakutuloksesta; kyse ei ole erillisistä hauista kummallekin ryhmälle.
+
+Ratkaisumuistin vektorihaku käyttää puhdasta kosinijärjestystä nykyisellä
+0,43:n rajalla. PoC:n hakusana-, turvallisuuslähde- ja postilaatikkoheuristiikkoja
+tai erikoiskyselysuodatusta ei sovelleta tähän vektorijärjestykseen.
+Ratkaisumuistin oma turvallisuuskeskeytys ja ympäristösuodatus tehdään silti
+ennen hakua. Alkuperäisen PoC:n oletushaku ja sen heuristiikat säilyvät.
+Kummankin näkyvän ryhmän sisällä järjestys seuraa kosinipisteitä.
 
 Tietokantapäivitys lisää vain kolme tyhjää, valinnaista tekstisaraketta.
 Vanhat tietueet, vapaat kuvaukset, tilat, revisionumerot ja vahvistustiedot
@@ -82,6 +107,8 @@ Paikallisen HTTP-rajapinnan kentät ovat `operating_system`, `product` ja
 `null` tarkoittaa tuntematonta arvoa. Vanhan asiakkaan muokkauspyynnöstä
 puuttuvat uudet kentät säilyttävät jo tallennetut arvot; kentän nimenomainen
 tyhjentäminen poistaa arvon. Vapaa `environment`-kuvaus säilyy ennallaan.
+Haun `hits` säilyttää yhteisen pistejärjestyksen; `compatible_hits` ja
+`review_hits` sisältävät samojen osumien yllä kuvatut erilliset ryhmät.
 
 Ristiriitojen suodatus ei ratkaise kaikkia vastausta vailla olevia kyselyjä.
 Erityisesti saman tuotteen eri oireet tai organisaatiot voivat edelleen

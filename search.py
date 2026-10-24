@@ -326,7 +326,7 @@ class VectorSearch:
             except (ValueError,TypeError,SearchError):raise SearchError('Vektori-indeksi on vioittunut. Poista data/vectors.json ja valmistele haku uudelleen.') from None
         dims={len(v) for v in self.vectors}
         if len(dims)!=1:raise SearchError('Vektori-indeksin ulottuvuudet eivät täsmää.')
-    def query(self,text,top_k=3):
+    def query(self,text,top_k=3,*,apply_poc_heuristics=True):
         # Keskimäärä pitkän pyynnön kaikista ikkunoista: ei hiljaista loppuosan katoamista.
         tokenizer=getattr(self.model,'tokenizer',None)
         if tokenizer:
@@ -350,6 +350,11 @@ class VectorSearch:
             other=next((h for h in ranked if self.guides[h['guide_id']]['category']!=category),None)
             uncertain=bool(other and hits[0]['score']-other['score']<.04)
             if uncertain:category='muu'
+        if not apply_poc_heuristics:
+            # Solution memory uses only cosine order; its own safety and environment checks run first.
+            return {'backend':'vector','category':category,'ambiguous':uncertain,'threshold':self.threshold,
+                    'hits':hits,'best_candidate':ranked[0] if ranked else None,
+                    'fingerprint':self.fingerprint,'reranking':None}
         # Ambiguity uses the original cosine ranking. Only an explicit mailbox
         # capacity relation may change category after the safety rerankers.
         hits,reranking=_rerank_same_category(text,hits,self.guides) if not uncertain else (hits,None)

@@ -1,17 +1,25 @@
 import json
+import math
 import sqlite3
 import tempfile
 import unittest
-from contextlib import closing
+from contextlib import closing, ExitStack
 from pathlib import Path
 from unittest.mock import patch
 
 from desk import DeskError
-from solution_memory import ENVIRONMENT_FIELDS, Memory, database
+from solution_memory import ENVIRONMENT_FIELDS, Memory, as_guide, check_environment, database, search_filters
 from test_solution_memory import SAMPLE, FakeEncoder
 
 
 ENV = dict(operating_system='Windows 11', product='AuroraVPN', product_version='5.2')
+
+
+class RankingEncoder:
+    # Controlled cosine similarity reproduces the real F17 ranking failure.
+    def encode(self, texts, **kwargs):
+        return [[0.5, math.sqrt(0.75)] if value.startswith('Projektikansion') else [1., 0.]
+                for value in texts]
 
 
 class MemoryEnvironmentTests(unittest.TestCase):
@@ -173,6 +181,104 @@ class MemoryEnvironmentTests(unittest.TestCase):
         self.memory.save(dict(SAMPLE, **ENV))
         for backend in ('keyword','vector'):
             self.assertEqual(self.memory.search('VPN E42',backend,FakeEncoder(),filters=ENV)['hits'], [])
+
+    def test_known_os_aliases_match_both_directions_without_rewriting_records(self):
+        pairs = [('Win 11','Windows 11'), ('win11','WINDOWS11'),
+                 ('Win 10','Windows 10'), ('Mac OS 15','macOS 15'),
+                 ('Ubuntu24.04','Ubuntu 24.04'), ('Debian12','Debian 12'),
+                 ('Android15','Android 15')]
+        for index, pair in enumerate(pairs):
+            for direction, (actual, wanted) in enumerate((pair, pair[::-1])):
+                with self.subTest(actual=actual,wanted=wanted):
+                    memory=Memory(self.path.with_name(f'alias-{index}-{direction}.sqlite3'))
+                    record=self.verified(memory,operating_system=actual)
+                    result=memory.search('VPN E42',filters=dict(ENV,operating_system=wanted))
+                    self.assertEqual([hit['record']['id'] for hit in result['hits']], [record['id']])
+                    self.assertEqual(memory.list()[0]['operating_system'],actual)
+                    self.assertEqual(result['hits'][0]['environment_check']['status'],'declared_match')
+
+    def test_os_aliases_never_merge_versions_editions_products_or_missing_values(self):
+        for actual, wanted in [('Windows 10','Win 11'), ('Windows 11.1','Win 11'),
+                               ('macOS 15.1','Mac OS 15'), ('Ubuntu 24.10','Ubuntu24.04'),
+                               ('Windows 11 Pro','Win 11'), ('Windows','Win 11')]:
+            with self.subTest(actual=actual,wanted=wanted):
+                check=check_environment(dict(ENV,operating_system=actual),search_filters(dict(ENV,operating_system=wanted)))
+                self.assertEqual(check['conflicting_fields'],['operating_system'])
+        for field, actual, wanted in [('product','Win 11','Windows 11'), ('product_version','5.2','5.20')]:
+            check=check_environment(dict(ENV,**{field:actual}),search_filters(dict(ENV,**{field:wanted})))
+            self.assertEqual(check['conflicting_fields'],[field])
+        check=check_environment(dict(ENV,operating_system=None),search_filters(dict(ENV,operating_system='Win 11')))
+        self.assertEqual(check['status'],'needs_review')
+        self.assertEqual(check['missing_record_fields'],['operating_system'])
+
+    def ranking_fixture(self):
+        vpn=self.verified(title='VPN E42 Windowsissa')
+        legacy=self.memory.save(dict(title='Projektikansion käyttöoikeus',problem='Verkkokansion käyttö estetty.',
+                                     environment='Windowsin verkkolevy.',solution='Tarkista projektiryhmän käyttöoikeudet.'))
+        legacy=self.memory.transition(dict(id=legacy['id'],revision=legacy['revision'],confirmed=True,verified_by='Testi'),'verified')
+        query='Koivun Windows 11:n AuroraVPN 5.2 ei yhdisty E42:n vuoksi, vaikka verkkosivut avautuvat.'
+        return vpn,legacy,query
+
+    def test_memory_keeps_vector_order_when_poc_word_stem_promotes_review_candidate(self):
+        vpn,legacy,query=self.ranking_fixture()
+        result=self.memory.search(query,'vector',RankingEncoder(),filters=ENV)
+        self.assertEqual([hit['record']['id'] for hit in result['hits']],[vpn['id'],legacy['id']])
+        self.assertEqual([hit['score'] for hit in result['hits']],[1.,0.5])
+        self.assertEqual([hit['record']['id'] for hit in result['compatible_hits']],[vpn['id']])
+        self.assertEqual([hit['record']['id'] for hit in result['review_hits']],[legacy['id']])
+
+    def test_poc_default_keeps_original_heuristics_and_pure_query_is_explicit(self):
+        from search import VectorSearch
+        vpn,legacy,query=self.ranking_fixture()
+        index=VectorSearch([as_guide(row) for row in self.memory.list('verified')],RankingEncoder(),self.path.with_suffix('.vectors.json'))
+        original=index.query(query)
+        self.assertEqual(original,index.query(query,apply_poc_heuristics=True))
+        self.assertEqual(original['hits'][0]['guide_id'],legacy['id'])
+        self.assertEqual(original['reranking']['matched_terms'],['verkkosivut'])
+        pure=index.query(query,apply_poc_heuristics=False)
+        self.assertEqual(pure['hits'][0]['guide_id'],vpn['id'])
+        self.assertIsNone(pure['reranking'])
+        self.assertEqual(pure['threshold'],0.43)
+
+    def test_pure_query_skips_all_poc_heuristics_without_changing_safety_stop(self):
+        from search import VectorSearch
+        self.ranking_fixture()
+        index=VectorSearch([as_guide(row) for row in self.memory.list('verified')],RankingEncoder(),self.path.with_suffix('.vectors.json'))
+        names=('_rerank_same_category','_rerank_unsolicited_approval','_rerank_credential_threat',
+               '_rerank_mailbox_capacity','_apply_request_scope')
+        with ExitStack() as stack:
+            for name in names:
+                stack.enter_context(patch('search.'+name,side_effect=AssertionError('PoC heuristic called')))
+            pure=index.query('VPN E42, verkkosivut toimivat.',apply_poc_heuristics=False)
+        self.assertTrue(pure['hits'])
+        with patch('search.encoder',side_effect=AssertionError('Model loaded')):
+            self.assertEqual(self.memory.search('Akku on turvonnut.','vector',filters=ENV)['state'],'safety_stop')
+
+    def test_review_only_results_explicitly_have_no_compatible_candidates(self):
+        self.verified(product_version=None)
+        for backend in ('keyword','vector'):
+            result=self.memory.search('VPN E42',backend,FakeEncoder(),filters=ENV)
+            self.assertEqual(result['compatible_hits'],[])
+            self.assertEqual(result['review_hits'],result['hits'])
+            self.assertIn('yhteensopivia ehdokkaita ei löytynyt',result['message'])
+            self.assertTrue(result['hits'])
+
+    def test_groups_are_complete_disjoint_subsequences_of_vector_order(self):
+        self.verified()
+        self.verified(product_version=None)
+        result=self.memory.search('VPN E42','vector',FakeEncoder(),filters=ENV)
+        compatible=result['compatible_hits'];review=result['review_hits']
+        self.assertEqual(len(compatible),1)
+        self.assertEqual(len(review),1)
+        self.assertEqual({hit['record']['id'] for hit in result['hits']},
+                         {hit['record']['id'] for hit in compatible+review})
+        self.assertEqual(compatible,[hit for hit in result['hits'] if hit['environment_check']['status']=='declared_match'])
+        no_filters=self.memory.search('VPN E42','vector',FakeEncoder())
+        self.assertEqual(no_filters['compatible_hits'],[])
+        self.assertEqual(len(no_filters['review_hits']),2)
+        empty=self.memory.search('VPN E42',filters=dict(ENV,operating_system='Android 15'))
+        self.assertEqual(empty['compatible_hits'],[])
+        self.assertEqual(empty['review_hits'],[])
 
     def test_safety_stop_precedes_model_and_database_access(self):
         with patch('search.encoder', side_effect=AssertionError('Model loaded')):

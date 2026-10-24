@@ -507,3 +507,175 @@ Ulkoisia API-kutsuja ei tehty, muutoksia ei pushattu eikä vanhaa projektia
 muutettu. Uusi näkymä käynnistettiin paikallisesti osoitteeseen
 `http://127.0.0.1:8502/memory` ilman API-avainta. Palvelimen
 uudelleenkäynnistyksen jälkeen selain on päivitettävä.
+
+## OS-aliasten ja ratkaisumuistin vektorijärjestyksen korjaus – 24.10.2026
+
+Lähtöversio on `2404b9e`. Korjaus rajattiin tunnettuihin OS-kirjoitusasuihin,
+ratkaisumuistin vektorijärjestykseen ja pyydettyyn ehdokasryhmien erotteluun.
+Hakurajaa **0,43** tai top-3-rajaa ei muutettu. Käyttäjän tietokantaan ei
+kirjoitettu eikä skeemaa muutettu tässä korjauksessa.
+
+### Normalisointi ja järjestysregression syy
+
+OS-vertailu tunnistaa Windows 10:n ja 11:n tunnetut `Win`- ja välilyönnittömät
+kirjoitusasut sekä rajatut macOS 15-, Ubuntu 24.04-, Debian 12- ja Android 15
+-kirjoitusasut. Esimerkiksi `Win 11`, `win11`, `Windows11` ja `Windows 11`
+tarkoittavat samaa käyttöjärjestelmää. Normalisointi on vain vertailussa;
+tallennettuja arvoja ei kirjoiteta uudelleen. Versioita, aliversioita tai
+editioita ei poisteta tai yhdistetä. Tuote- ja versiokenttiin ei sovelleta
+OS-aliaksia: esimerkiksi `5.2` ja `5.20` pysyvät eri arvoina.
+
+Aiemman F17-regression syy oli PoC:n `_rerank_same_category`-heuristiikka:
+kuuden kirjaimen sanavartalo yhdisti sanan `verkkosivut` verkkolevyohjeeseen.
+Se nosti verkkolevytietueen (**0,498315**) VPN-tietueen (**0,833909**) edelle.
+Ratkaisumuisti käyttää nyt vektorikyselyssä `apply_poc_heuristics=False`-
+valintaa: järjestys on puhtaasti kosinisamankaltaisuuden mukainen.
+PoC:n uudelleenjärjestelyjä tai erikoiskyselysuodatusta ei käytetä tässä
+vektoripolussa. Ratkaisumuistin oma turvallisuuskeskeytys ja ympäristörajaus
+säilyvät ennen hakua. Sanahaun pisteytykseen ei tehty muutoksia.
+
+`VectorSearch.query()` käyttää edelleen oletuksena PoC:n aiempia heuristiikkoja.
+PoC:n `vector_search()`- ja hybridipolkuja ei muutettu. Oletuskyselyn vastaukset
+olivat identtiset commitista `2404b9e` ladatun hakumoottorin kanssa kaikissa
+**38/38** kehitys- ja loppuarvioinnin vertailuissa samoilla ehdokasjoukoilla.
+Lisäksi alkuperäiset regressiotestit säilytettiin ja ajettiin.
+
+### Ehdokasryhmät ja merkintöjen rajat
+
+API:n `hits` on yhteinen puhdas vektorijärjestys. Sen osajoukot erotetaan:
+
+- `compatible_hits`: kaikki kolme ilmoitettua ympäristöarvoa ovat tiedossa
+  molemmin puolin ja täsmäävät vertailussa. Näyttöteksti rajaa yhteensopivuuden
+  **ilmoitettuihin tietoihin**, eikä takaa oireen tai korjauksen sopivuutta.
+- `review_hits`: vähintään yksi ympäristöarvo puuttuu. Puuttuvat tietueen ja
+  kyselyn kentät näytetään erikseen. Tarkistusmerkintä ei lupaa toimivuutta.
+
+Käyttöliittymä näyttää nämä ryhmät erikseen ja kummankin sisällä pistejärjestyksessä.
+Jos ensimmäinen ryhmä on tyhjä, käyttöliittymä ja API:n viesti kertovat sen
+selvästi myös silloin, kun tarkistettavia ehdokkaita on. Kumpikin ryhmä on
+samasta enintään kolmesta osumasta; tulosmääriä tai erillisiä hakukiintiöitä
+ryhmille ei lisätty. Loppuarvioinnissa ensimmäinen ryhmä puuttui **11/21**
+kyselystä; näistä **7** palautti tarkistettavia ehdokkaita.
+
+### Aineiston erottelu ja kolmen tavan vertailu
+
+Aiemmat 17 loppuarviointikyselyä ovat nyt kehitysaineistoa. Ennen toteutusta
+laadittiin ja lukittiin **21 uutta kyselyä**, joiden sanatarkka teksti ei ole
+aiemmissa aineistoissa. Sama kuvitteellinen tapausaineisto säilyi. Uudet
+kyselyt sisältävät tarkoituksella useita alias- ja versiorajojen vastatapauksia.
+Ne ovat saman kehitystyön tekijän laatimia, eivät riippumaton holdout-aineisto.
+Aineiston SHA-256: `54e104e2d6a546133f94bfe6d43991f03254f2d85b0adb4c29cf680d3f15b91f`.
+
+Vertailut tehtiin samalla oikealla paikallisella MiniLM-mallilla
+(revisio `e8f8c211226b894fcb81acc59f3b34ba3efd5f42`, CPU, 384 ulottuvuutta)
+kolmessa tilassa:
+
+1. **Lähtöversio:** commitin `2404b9e` tiukka OS-vertailu ja PoC-heuristiikat.
+2. **OS-korjaus + PoC:** korjatut aliakset mutta vanha heuristinen järjestys.
+3. **Lopullinen:** korjatut aliakset ja ratkaisumuistin puhdas vektorijärjestys.
+
+Toteutus tarkistettiin kehityskokeen jälkeen ja jäädytettiin tarkistussummilla
+ennen uuden loppuaineiston ensimmäistä ajoa. Hakukoodia, kyselyjä tai rajaa
+ei muutettu loppuarvioinnin perusteella.
+
+| Mittari | Kehitys: lähtö → OS + PoC → lopullinen | Uusi loppuarviointi: lähtö → OS + PoC → lopullinen |
+|---|---|---|
+| Oikea ensimmäinen osuma yhteisessä `hits`-listassa | 7/10 → 8/10 → 8/10 | 3/12 → 8/12 → 10/12 |
+| Oikea tietue top-3:ssa | 9/10 → 10/10 → 10/10 | 6/12 → 12/12 → 12/12 |
+| Väärin hylätty oikea ratkaisu | 1 → 0 → 0 | 6 → 0 → 0 |
+| Puuttuva oikea top-3-tulos | 1 → 0 → 0 | 6 → 0 → 0 |
+| Väärien osumien määrä | 20 → 21 → 21 | 17 → 23 → 23 |
+| Kyselyjä, joissa väärä osuma | 10/17 → 11/17 → 11/17 | 12/21 → 12/21 → 12/21 |
+| Ei sopivaa ratkaisua, silti osumia | 4/7 → 4/7 → 4/7 | 5/9 → 5/9 → 5/9 |
+
+Uuden ryhmitellyn näkymän ensimmäinen näkyvä ehdokas oli myös oikein
+**10/12** positiivisessa loppukyselyssä. Vertailun päämittari on yllä yhteisen
+`hits`-listan järjestys; ryhmittely ei tarkoita samaa kuin koko listan näyttäminen
+yhtenä pistejärjestyksenä.
+
+### Korjausten tulokset ja myös heikennykset
+
+- Kehityksen **F12**: `Win 11` ei enää hylkää oikeaa Windows 11 -ratkaisua.
+  Oikea VPN-tietue löytyi ensimmäisenä (**0,863843**).
+- Kehityksen **F17**: puhdas järjestys palauttaa oikean VPN-tietueen
+  (**0,833909**) verkkolevytapauksen (**0,498315**) edelle.
+- **Kehityksen F05 heikkeni:** aiempi heuristiikka nosti oikean Saarnin
+  tapauksen ensimmäiseksi. Puhdas kosinijärjestys nostaa Koivun tapauksen
+  (**0,848271**) Saarnin (**0,830824**) edelle. Organisaatio ei ole tässä
+  rajauksessa rakenteinen kenttä. Heuristiikan poistaminen menetti siis myös
+  yhden hyödyllisen noston; tätä ei piilotettu tai korjattu aineistoon sovittamalla.
+- Uuden loppuarvioinnin **H01**: OS-normalisoinnin jälkeinen PoC-järjestys
+  nosti verkkolevyn ensimmäiseksi. Puhdas vektorijärjestys palautti oikean
+  VPN-tietueen (**0,803819**) verkkolevyn (**0,468487**) edelle.
+- **H21**: puuttuva tuoterajaus ei johda yhteensopivuusväitteeseen. Kaikki
+  ehdokkaat jäävät tarkistettaviksi, ja puhdas järjestys nosti oikean VPN:n
+  (**0,840998**) verkkolevyn (**0,439461**) edelle.
+- **Väärien osumien määrä kasvoi** kehityksessä 20:stä 21:een ja uusissa
+  loppukyselyissä 17:stä 23:een. Aliasvirheen korjaus avasi aiemmin virheellisen
+  OS-ristiriidan vuoksi suljettuja ehdokkaita. Osa niistä on silti väärän
+  organisaation tai puuttuvien tietojen tapauksia. Hakutulosjoukot ovat samat
+  OS-korjaus + PoC- ja puhdas vektori -vertailuissa; niiden ero on järjestys.
+
+### Jäljelle jääneet väärät osumat ja puuttuvat tiedot
+
+Kaikki 12 oikeaa loppuratkaisua löytyivät, mutta **H09**:ssä väärä Koivun
+ratkaisu (**0,780291**) jäi oikean Saarnin (**0,762207**) edelle. **H10**:ssä
+hakuversion puuttuminen jätti molemmat VPN-versiot tarkistettaviksi:
+väärä 5.2 oli **0,863561** ja oikea 6.1 **0,857948**. Versiota ei päätelty
+hakutekstistä automaattisesti.
+
+Vastausta vailla olevien yhdeksän kyselyn viisi virheellistä osumajoukkoa:
+
+| Koe | Väärä osuma tai syy |
+|---|---|
+| H03, Windows 10 | Puutteellinen verkkolevytietue 0,445989; tunnetut Windows 11 -tietueet suljettiin pois |
+| H04, tuotteen versio 5.20 | Saarnin tietue 0,754177, jonka versio puuttuu; tunnettuja 5.2-versioita ei yhdistetty 5.20:een |
+| H14, yhteys toimii mutta video pätkii | Yhteyden avaamisen E42-tietue 0,731805 ei vastaa oiretta |
+| H15, Leppä-organisaatio | Koivun tietue 0,791196; sama OS, tuote ja versio eivät osoita organisaation soveltuvuutta |
+| H18, esityskaukosäädin | Outlook-tietue 0,462495; kaikki hakurajaukset puuttuvat |
+
+Loppukokeessa palautui yhteensä **10 ilmoitettujen tietojen perusteella
+yhteensopivaksi luokiteltua** ja **25 puuttuvien tietojen vuoksi tarkistettavaa**
+osumaa. Kolme väärää osumaa oli ensimmäisessä ryhmässä. Merkinnät eivät siis
+osoita ratkaisun toimivuutta, vaan ainoastaan ilmoitettujen kenttien tilanteen.
+Luonnokset ja käytöstä poistetut tietueet pysyivät pois hausta kaikissa ajoissa.
+
+### Regressiotestit, säilyminen ja toistaminen
+
+Molemmat aiemmin havaitut virheet toistettiin ensin uusilla testeillä
+lähtökoodissa. Korjauksen jälkeen **217/217 Python-testiä** ja laajennettu
+ratkaisumuistin JavaScript-testi hyväksyttiin. Uudet tarkistukset kattavat
+aliasvertailun molempiin suuntiin ilman tietojen uudelleenkirjoitusta,
+OS- ja tuoteversioiden sekä editioiden erottelun, tunnetun järjestysregression,
+PoC-oletuksen säilymisen, PoC-heuristiikkojen ohittamisen vain puhtaassa
+vektoripolussa, turvallisuuskeskeytyksen säilymisen, API:n ehdokasryhmät,
+ryhmien erottelun käyttöliittymässä sekä yhteensopivien puuttumisen ilmoituksen.
+JavaScript-testi käyttää DOM-korviketta; uutta oikean selaimen koetta ei ajettu.
+
+Käyttäjän tietokanta säilyi bittitasolla ennallaan, SHA-256
+`b2082b2b89d36f015b02123eef56e7173a8312ac2d01ea3ddb022d7c401374e3`.
+Molempien tietueiden kaikki arvot tarkistettiin samoiksi ennen sovelluksen
+uudelleenkäynnistystä. Korjaus ei tee skeemapäivitystä tai metatietojen täyttöä.
+Vanhaa projektia ei muutettu. Ulkoisia API-kutsuja ja pushia ei tehty.
+
+```powershell
+& .\.venv\Scripts\python.exe -B -m unittest discover -s tests
+node .\tests\ui_memory_test.cjs
+& .\.venv\Scripts\python.exe -B .\tests\evaluate_memory_ranking.py --split development
+& .\.venv\Scripts\python.exe -B .\tests\evaluate_memory_ranking.py --split final
+```
+
+Loppuarviointi edellyttää tämän toteutuksen paikallista jäädytystiedostoa
+`data/ranking-evaluation/implementation-freeze.json`. Sen tarkistussummat
+estävät muuttuneen toteutuksen nimeämisen samaksi loppuarvioinniksi.
+Vertailu lukee lähtökoodin paikallisesta commitista `2404b9e`.
+
+- [Kaikki 17 kehityskyselyä, kolme järjestystä ja pisteet](../data/ranking-evaluation/development-20261024T093341698646Z/report.md)
+- [Kaikki 21 uutta loppukyselyä, kolme järjestystä, ryhmät ja virheet](../data/ranking-evaluation/final-20261024T093554464018Z/report.md)
+- Molempien paikallisten raporttien vieressä ovat `results.json`, lukittu
+  aineistokopio, erillinen testitietokanta ja sen oma vektorivälimuisti.
+- Käynnistyksen ja käyttäjän tietokannan tarkistus: `data/ranking-evaluation/application-check.json`.
+
+Paikalliset raportit ja tietokannat ovat Gitin ulkopuolella. Sovellus on
+käynnissä osoitteessa `http://127.0.0.1:8502/memory` ilman API-avainta.
+Selain on päivitettävä palvelimen uudelleenkäynnistyksen jälkeen.

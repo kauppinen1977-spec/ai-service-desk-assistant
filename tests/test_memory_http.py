@@ -72,6 +72,23 @@ class MemoryHTTPTests(unittest.TestCase):
         self.assertEqual(unknown['hits'][0]['environment_check']['status'],'needs_review')
         self.assertEqual(self.post('search',dict(query='VPN E42',filters=[]))[0],400)
 
+    def test_os_alias_and_candidate_groups_over_http(self):
+        fields=dict(operating_system='Win 11',product='AuroraVPN',product_version='5.2')
+        known=self.post('save',dict(SAMPLE,**fields))[1]['record']
+        unknown=self.post('save',SAMPLE)[1]['record']
+        for row in (known,unknown):
+            self.assertEqual(self.post('verify',dict(id=row['id'],revision=row['revision'],confirmed=True,verified_by='HTTP-testi'))[0],200)
+        status,result=self.post('search',dict(query='VPN E42',filters=dict(fields,operating_system='Windows 11')))
+        self.assertEqual(status,200)
+        self.assertEqual([hit['record']['id'] for hit in result['compatible_hits']],[known['id']])
+        self.assertEqual(result['compatible_hits'][0]['record']['operating_system'],'Win 11')
+        self.assertEqual([hit['record']['id'] for hit in result['review_hits']],[unknown['id']])
+        status,result=self.post('search',dict(query='VPN E42',filters=dict(fields,operating_system='Android 15')))
+        self.assertEqual(status,200)
+        self.assertEqual(result['compatible_hits'],[])
+        self.assertTrue(result['review_hits'])
+        self.assertIn('yhteensopivia ehdokkaita ei löytynyt',result['message'])
+
     def test_every_memory_action_requires_session_token(self):
         for action in ('list', 'save', 'verify', 'retire', 'search', 'suggest'):
             self.assertEqual(self.post(action, {}, token='wrong')[0], 403)

@@ -1,0 +1,594 @@
+{
+  "authored_before_implementation": "2026-10-24T09:24:13.245589+00:00",
+  "baseline_commit": "2404b9e",
+  "notes": "Previous 17 final queries are development data now. These 21 final queries were authored before this correction; same fictional corpus and author, not an independent holdout.",
+  "records": [
+    {
+      "key": "vpn_win52_koivu",
+      "title": "AuroraVPN E42 Windows 11 -asiakkaassa",
+      "problem": "AuroraVPN-yhteys ei muodostu ja näyttää virheen E42. Internet toimii normaalisti.",
+      "environment": "Kuvitteellinen Koivu Oy, Windows 11 24H2, AuroraVPN 5.2, hallittu työkannettava.",
+      "solution": "Koivun harjoitusympäristössä sulje AuroraVPN kokonaan ja avaa se uudelleen. Käynnistä yhteys uudelleen. Rajattu versioon 5.2; ei macOS- tai 6.1-ohje.",
+      "status": "verified",
+      "operating_system": "Windows 11",
+      "product": "AuroraVPN",
+      "product_version": "5.2"
+    },
+    {
+      "key": "vpn_mac52_koivu",
+      "title": "AuroraVPN E42 macOS-asiakkaassa",
+      "problem": "AuroraVPN-yhteys ei muodostu ja näyttää virheen E42. Internet toimii normaalisti.",
+      "environment": "Kuvitteellinen Koivu Oy, macOS 15, AuroraVPN 5.2, hallittu MacBook.",
+      "solution": "Koivun Mac-harjoituksessa käytä AuroraVPN:n omaa Kirjaudu ulos -toimintoa ja kirjaudu uudelleen. Rajattu macOS 15:een, ei Windows-ohje.",
+      "status": "verified",
+      "operating_system": "macOS 15",
+      "product": "AuroraVPN",
+      "product_version": "5.2"
+    },
+    {
+      "key": "vpn_win61_koivu",
+      "title": "AuroraVPN E42 Windows-version 6.1 päivityksen jälkeen",
+      "problem": "AuroraVPN-yhteys ei muodostu ja näyttää virheen E42. Internet toimii normaalisti.",
+      "environment": "Kuvitteellinen Koivu Oy, Windows 11 24H2, AuroraVPN 6.1, hallittu työkannettava.",
+      "solution": "Koivun version 6.1 harjoituksessa valitse sovelluksen organisaatioprofiili uudelleen. Versiolle 5.2 tarkoitettu uudelleenkäynnistys ei korjaa tätä harjoitustapausta.",
+      "status": "verified",
+      "operating_system": "Windows 11",
+      "product": "AuroraVPN",
+      "product_version": "6.1"
+    },
+    {
+      "key": "vpn_win52_saarni",
+      "title": "AuroraVPN E42 Saarnin Windows-ympäristössä",
+      "problem": "AuroraVPN-yhteys ei muodostu ja näyttää virheen E42. Internet toimii normaalisti.",
+      "environment": "Kuvitteellinen Saarni Oy, Windows 11 24H2, AuroraVPN 5.2, hallittu työkannettava.",
+      "solution": "Saarnin harjoitusympäristössä valitse Saarnin oma yhteysprofiili sovelluksen valikosta. Koivun ohje ei sovellu tähän ympäristöön.",
+      "status": "verified",
+      "operating_system": "Windows 11",
+      "product": "AuroraVPN",
+      "product_version": null
+    },
+    {
+      "key": "print_win",
+      "title": "MeriPrint P400: tulostustyöt jäävät jonoon Windowsissa",
+      "problem": "MeriPrint P400 ei tulosta, ja asiakirjat jäävät tulostusjonoon odottamaan.",
+      "environment": "Kuvitteellinen Koivu Oy, Windows 11, MeriPrint P400, yrityksen jaettu tulostusjono.",
+      "solution": "Avaa Windowsin tulostusjono ja poista Keskeytä tulostus -valinta. Tämä harjoitusohje koskee Windowsin jaettua jonoa.",
+      "status": "verified",
+      "operating_system": "Windows 11",
+      "product": "MeriPrint P400",
+      "product_version": null
+    },
+    {
+      "key": "print_mac",
+      "title": "MeriPrint P400: tulostustyöt jäävät jonoon macOS:ssa",
+      "problem": "MeriPrint P400 ei tulosta, ja asiakirjat jäävät tulostusjonoon odottamaan.",
+      "environment": "Kuvitteellinen Koivu Oy, macOS 15, MeriPrint P400, AirPrint-yhteys.",
+      "solution": "Valitse macOS:n tulostusjonossa Jatka. Tarkista harjoitusympäristön AirPrint-tulostimen valinta. Ei Windowsin jaetun jonon ohje.",
+      "status": "verified",
+      "operating_system": "macOS 15",
+      "product": "MeriPrint P400",
+      "product_version": null
+    },
+    {
+      "key": "mail_win",
+      "title": "Outlookin viestit jäävät lähteviin Windowsissa",
+      "problem": "Outlook ei lähetä sähköpostia. Viestit odottavat Lähtevät-kansiossa, mutta verkkoposti toimii.",
+      "environment": "Kuvitteellinen Koivu Oy, Windows 11, perinteinen Outlook Microsoft 365, Exchange Online.",
+      "solution": "Poista Outlookin Lähetä ja vastaanota -välilehdeltä Työskentele offline-tilassa -valinta. Vain perinteinen Windows-Outlook.",
+      "status": "verified",
+      "operating_system": "Windows 11",
+      "product": "Outlook",
+      "product_version": "Microsoft 365"
+    },
+    {
+      "key": "mail_mac",
+      "title": "Outlookin viestit jäävät lähteviin Macissa",
+      "problem": "Outlook ei lähetä sähköpostia. Viestit odottavat Lähtevät-kansiossa, mutta verkkoposti toimii.",
+      "environment": "Kuvitteellinen Koivu Oy, macOS 15, Outlook for Mac 16.90, Exchange Online.",
+      "solution": "Avaa Outlook for Macin tilityökalut ja synkronoi harjoitustili uudelleen. Vain Macin versio 16.90, ei Windowsin offline-valinnan ohje.",
+      "status": "verified",
+      "operating_system": "macOS 15",
+      "product": "Outlook for Mac",
+      "product_version": "16.90"
+    },
+    {
+      "key": "smb_win",
+      "title": "Projektikansion käyttö estyy Windowsin verkkolevyllä",
+      "problem": "Resurssienhallinta ei avaa projektiryhmän verkkokansiota ja ilmoittaa Käyttö estetty.",
+      "environment": "Kuvitteellinen Koivu Oy, Windows 11, SMB-verkkolevy, projektiryhmä Aava.",
+      "solution": "Tarkista harjoitusryhmän jäsenyys hyväksytyn tukimenettelyn kautta. Tämä tietue koskee Aava-ryhmän verkkolevyä, ei VPN- tai sähköpostivikaa.",
+      "status": "verified",
+      "operating_system": null,
+      "product": null,
+      "product_version": null
+    },
+    {
+      "key": "draft_nebula",
+      "title": "NebulaDesk-tuotekortin avausvirhe N77",
+      "problem": "NebulaDesk-tuotekortti ei avaudu. Näytössä näkyy N77 ja tyhjä korttinäkymä.",
+      "environment": "Kuvitteellinen Koivu Oy, Debian 12, NebulaDesk 2.0 kioskitilassa.",
+      "solution": "Kuvitteellinen vahvistamaton luonnos: avaa harjoitussovellus uudelleen. Ei vahvistettu oikeaksi ratkaisuksi.",
+      "status": "draft",
+      "operating_system": "Debian 12",
+      "product": "NebulaDesk",
+      "product_version": "2.0"
+    },
+    {
+      "key": "retired_atlas",
+      "title": "AtlasScan-skannausvirhe S19",
+      "problem": "AtlasScan lopettaa asiakirjan skannauksen ja näyttää virheen S19.",
+      "environment": "Kuvitteellinen Koivu Oy, Windows 10, AtlasScan 1.0 ja USB-skanneri.",
+      "solution": "Kuvitteellinen vanhentunut ohje: valitse harjoituksen vanha skannausprofiili. Poistettu käytöstä.",
+      "status": "retired",
+      "operating_system": "Windows 10",
+      "product": "AtlasScan",
+      "product_version": "1.0"
+    }
+  ],
+  "development": [
+    {
+      "id": "F01",
+      "group": "paraphrase",
+      "query": "Koivun Windows-koneella julkinen verkko toimii, mutta AuroraVPN 5.2 jää avaamaan yritystunnelia eikä työpalveluihin pääse.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F02",
+      "group": "paraphrase",
+      "query": "Koivun Macissa Outlook 16.90 säilyttää lähetettävät postit omassa jonossaan. Sama tili lähettää selaimen kautta normaalisti.",
+      "expected": [
+        "mail_mac"
+      ],
+      "filters": {
+        "operating_system": "macOS 15",
+        "product": "Outlook for Mac",
+        "product_version": "16.90"
+      }
+    },
+    {
+      "id": "F03",
+      "group": "paraphrase",
+      "query": "Koivun macOS 15:n AirPrint-laitteeseen MeriPrint P400 lähetetyt sivut odottavat jonossa, eikä yhtään arkkia tule ulos.",
+      "expected": [
+        "print_mac"
+      ],
+      "filters": {
+        "operating_system": "macOS 15",
+        "product": "MeriPrint P400",
+        "product_version": null
+      }
+    },
+    {
+      "id": "F04",
+      "group": "version",
+      "query": "Koivun Windows 11:ssä AuroraVPN:n 6.1-päivitystä seurasi E42. Tavalliset nettisivut ovat käytettävissä, yritysyhteys ei käynnisty.",
+      "expected": [
+        "vpn_win61_koivu"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "6.1"
+      }
+    },
+    {
+      "id": "F05",
+      "group": "organisation_missing",
+      "query": "Saarnin Windows 11 -työasemalla AuroraVPN 5.2 antaa E42:n etäyhteyttä aloitettaessa. Internetiin pääsee.",
+      "expected": [
+        "vpn_win52_saarni"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F06",
+      "group": "no_solution",
+      "query": "Koivun Ubuntu 24.04 -koneessa AuroraVPN 5.2 pysähtyy E42:een, vaikka internetissä selaaminen onnistuu.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Ubuntu 24.04",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F07",
+      "group": "no_solution",
+      "query": "Leppä-yrityksen Windows 11:n AuroraVPN 5.2 ei pääse E42:n takia yritysverkkoon. Tavallinen internet on kunnossa.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F08",
+      "group": "no_solution_same_environment",
+      "query": "Koivun Windows 11:n AuroraVPN 5.2 yhdistää onnistuneesti mutta katkaisee toimivan tunnelin aina 40 minuutin jälkeen.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F09",
+      "group": "missing_query_os",
+      "query": "Koivun MacBookin AuroraVPN 5.2 ei saa yritysyhteyttä auki, ilmoittaa E42:n ja sallii muun internetliikenteen.",
+      "expected": [
+        "vpn_mac52_koivu"
+      ],
+      "filters": {
+        "operating_system": null,
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F10",
+      "group": "legacy_missing_fields",
+      "query": "Koivun Aava-projektin SMB-verkkokansioon meneminen estyy Windows 11:n Resurssienhallinnassa käyttöoikeusvirheeseen.",
+      "expected": [
+        "smb_win"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "SMB",
+        "product_version": "3.1.1"
+      }
+    },
+    {
+      "id": "F11",
+      "group": "missing_query_version",
+      "query": "Koivun Windows 11 -koneen AuroraVPN 6.1:n etäyhteyden avaus epäonnistuu E42:een; verkkosivut toimivat.",
+      "expected": [
+        "vpn_win61_koivu"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": null
+      }
+    },
+    {
+      "id": "F12",
+      "group": "equivalent_os_alias",
+      "query": "Koivun Windows 11 -työkoneella AuroraVPN 5.2 antaa E42:n heti yhteyden avauksessa, mutta internet toimii.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "F13",
+      "group": "no_solution_version",
+      "query": "Koivun Windows 11 -koneen AuroraVPN 5.20 ei yhdistä ja näyttää E42:n; muu verkko toimii.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.20"
+      }
+    },
+    {
+      "id": "F14",
+      "group": "draft_only",
+      "query": "Koivun Debian-kioskin NebulaDesk 2.0 avaa tuotekortin sijaan tyhjää ja ilmoittaa N77:n.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Debian 12",
+        "product": "NebulaDesk",
+        "product_version": "2.0"
+      }
+    },
+    {
+      "id": "F15",
+      "group": "retired_only",
+      "query": "Koivun Windows 10:n AtlasScan 1.0 keskeyttää sivun digitoinnin ja antaa S19-ilmoituksen.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Windows 10",
+        "product": "AtlasScan",
+        "product_version": "1.0"
+      }
+    },
+    {
+      "id": "F16",
+      "group": "no_solution_no_filters",
+      "query": "Varaston uuden kassajärjestelmän viivakoodilukija syöttää jokaisen numeron kahteen kertaan.",
+      "expected": [],
+      "filters": {
+        "operating_system": null,
+        "product": null,
+        "product_version": null
+      }
+    },
+    {
+      "id": "F17",
+      "group": "normalization",
+      "query": "Koivun Windows 11:n AuroraVPN 5.2 ei yhdisty vaan antaa E42:n, vaikka tavalliset verkkosivut avautuvat.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": " windows  11 ",
+        "product": " auroravpn ",
+        "product_version": " 5.2 "
+      }
+    }
+  ],
+  "final": [
+    {
+      "id": "H01",
+      "group": "windows_alias",
+      "query": "Koivun kannettavan AuroraVPN 5.2 palauttaa E42-ilmoituksen etäverkon avaamisessa. Julkiseen internetiin pääsee Windows 11:stä.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H02",
+      "group": "windows_alias",
+      "query": "Koivu Oy:n Windows 11:n AuroraVPN 5.2 estää yritysyhteyden muodostamisen virheellä E42, mutta tavallinen selailu onnistuu.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": "WINDOWS11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H03",
+      "group": "different_os_version",
+      "query": "Koivun Windows 10 -työasemalla AuroraVPN 5.2 näyttää E42:n eikä avaa etäyhteyttä. Internet toimii.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Win 10",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H04",
+      "group": "different_product_version",
+      "query": "Koivun Windows 11 -laitteen AuroraVPN 5.20 kieltäytyy avaamasta tunnelia E42:n vuoksi, vaikka muu verkko on kunnossa.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "AuroraVPN",
+        "product_version": "5.20"
+      }
+    },
+    {
+      "id": "H05",
+      "group": "different_os_version",
+      "query": "Koivun Windows 11.1 -harjoituskoneessa AuroraVPN 5.2 antaa E42:n yhteyttä aloittaessa.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Windows 11.1",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H06",
+      "group": "mac_alias",
+      "query": "Koivun MacBookin AuroraVPN 5.2 ilmoittaa E42 ja jättää sisäverkon tavoittamatta. Macin muut verkkopalvelut toimivat.",
+      "expected": [
+        "vpn_mac52_koivu"
+      ],
+      "filters": {
+        "operating_system": "Mac OS 15",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H07",
+      "group": "different_os_version",
+      "query": "Koivun macOS 15.1 -koneen AuroraVPN 5.2 näyttää E42:n ennen tunnelin valmistumista; verkossa selaaminen toimii.",
+      "expected": [],
+      "filters": {
+        "operating_system": "macOS 15.1",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H08",
+      "group": "reranking_regression",
+      "query": "Koivun Windows 11 -koneella verkkosivut avautuvat. AuroraVPN 5.2 ei kuitenkaan muodosta yritystunnelia vaan pysähtyy E42-virheeseen.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H09",
+      "group": "organisation",
+      "query": "Saarnin työntekijän AuroraVPN 5.2 ilmoittaa E42:n Windows 11 -koneella. Ongelma koskee yritystunnelin avaamista, ei internetyhteyttä.",
+      "expected": [
+        "vpn_win52_saarni"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H10",
+      "group": "missing_query_version",
+      "query": "Koivun AuroraVPN 6.1:n asentamisen jälkeen Windows 11:n etäyhteys ei enää avaudu vaan näyttää E42:n. Muu verkkoliikenne toimii.",
+      "expected": [
+        "vpn_win61_koivu"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": null
+      }
+    },
+    {
+      "id": "H11",
+      "group": "mail",
+      "query": "Koivun Macissa Outlook 16.90:n lähtevä posti seisoo jonossa. Lähetys onnistuu samalla tilillä verkkopostista.",
+      "expected": [
+        "mail_mac"
+      ],
+      "filters": {
+        "operating_system": "macOS 15",
+        "product": "Outlook for Mac",
+        "product_version": "16.90"
+      }
+    },
+    {
+      "id": "H12",
+      "group": "missing_record_version",
+      "query": "Koivun Windows 11:n jaetulle MeriPrint P400 -tulostimelle lähetetty työ jää odotustilaan eikä paperille tulostu mitään.",
+      "expected": [
+        "print_win"
+      ],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "MeriPrint P400",
+        "product_version": null
+      }
+    },
+    {
+      "id": "H13",
+      "group": "missing_record_metadata",
+      "query": "Koivun Windows 11:n Aava-ryhmän SMB-kansioon pääsy päättyy ilmoitukseen Käyttö estetty.",
+      "expected": [
+        "smb_win"
+      ],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "SMB",
+        "product_version": "3.1.1"
+      }
+    },
+    {
+      "id": "H14",
+      "group": "no_solution_same_environment",
+      "query": "Koivun Windows 11:n AuroraVPN 5.2 saa yhteyden auki, mutta videopuhelut pätkivät tunnelin ollessa päällä.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H15",
+      "group": "no_solution_organisation",
+      "query": "Leppä Oy:n Windows 11:n AuroraVPN 5.2 ilmoittaa etäyhteyttä avattaessa E42:n. Julkiset verkkosivut ovat tavoitettavissa.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "AuroraVPN",
+        "product_version": "5.2"
+      }
+    },
+    {
+      "id": "H16",
+      "group": "draft_only",
+      "query": "Koivun Debian 12 -kioskin NebulaDesk 2.0 näyttää N77:n tuotekortin sijaan ja ruutu jää tyhjäksi.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Debian 12",
+        "product": "NebulaDesk",
+        "product_version": "2.0"
+      }
+    },
+    {
+      "id": "H17",
+      "group": "retired_only",
+      "query": "Koivun Windows 10:n AtlasScan 1.0 lopettaa skannauksen S19-virheeseen heti sivun syötön jälkeen.",
+      "expected": [],
+      "filters": {
+        "operating_system": "Win 10",
+        "product": "AtlasScan",
+        "product_version": "1.0"
+      }
+    },
+    {
+      "id": "H18",
+      "group": "no_solution_no_filters",
+      "query": "Kokoushuoneen langaton esityskaukosäädin ei vaihda dioja, vaikka paristot on vaihdettu ja vastaanotin on kiinni.",
+      "expected": [],
+      "filters": {
+        "operating_system": null,
+        "product": null,
+        "product_version": null
+      }
+    },
+    {
+      "id": "H19",
+      "group": "alias_with_product_version",
+      "query": "Koivun Windows 11:n AuroraVPN 6.1 näyttää E42:n päivityksen jälkeen ja jättää etäverkon avaamatta. Internet toimii edelleen.",
+      "expected": [
+        "vpn_win61_koivu"
+      ],
+      "filters": {
+        "operating_system": "win11",
+        "product": "AuroraVPN",
+        "product_version": "6.1"
+      }
+    },
+    {
+      "id": "H20",
+      "group": "mail_windows_alias",
+      "query": "Koivun perinteisen Outlookin viestit eivät poistu Lähtevät-kansiosta Windows 11:ssä. Selainposti pystyy lähettämään.",
+      "expected": [
+        "mail_win"
+      ],
+      "filters": {
+        "operating_system": "Win 11",
+        "product": "Outlook",
+        "product_version": "Microsoft 365"
+      }
+    },
+    {
+      "id": "H21",
+      "group": "missing_query_product",
+      "query": "Koivun Windows 11 -koneella AuroraVPN 5.2 antaa etäyhteyden aloituksessa E42:n, mutta tavallinen verkkoselailu onnistuu.",
+      "expected": [
+        "vpn_win52_koivu"
+      ],
+      "filters": {
+        "operating_system": "Windows 11",
+        "product": null,
+        "product_version": "5.2"
+      }
+    }
+  ]
+}
