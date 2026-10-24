@@ -679,3 +679,100 @@ Vertailu lukee lähtökoodin paikallisesta commitista `2404b9e`.
 Paikalliset raportit ja tietokannat ovat Gitin ulkopuolella. Sovellus on
 käynnissä osoitteessa `http://127.0.0.1:8502/memory` ilman API-avainta.
 Selain on päivitettävä palvelimen uudelleenkäynnistyksen jälkeen.
+
+## Ratkaisumuistin käyttöliittymän selkeytys – 24.10.2026
+
+Lähtöcommit on `d602d08`, haara `kehitys/ratkaisumuisti`. AGENTS.md-ohjeita
+etsittiin worktreestä ja sen ylemmistä kansioista; niitä ei löytynyt.
+Git-työpuu oli aluksi puhdas. Muutos koskee käyttöliittymää, UI-testejä ja
+dokumentaatiota. Hakumoottoria, hakurajaa 0,43 tai tietokantarakennetta ei muutettu.
+
+### Nykyinen työnkulku
+
+- **Haku** on oletusnäkymä. Ongelman kuvaus, ympäristörajaukset ja haku ovat
+  etusijalla. Hallintalistaa ei ladata automaattisesti piilossa olevalle välilehdelle.
+- **Kirjoita ratkaisu** sisältää lomakkeen ja erikseen avattavan API-ehdotuksen.
+  **Hallinta ja historia** sisältää luonnokset, vahvistetut ja käytöstä poistetut
+  omissa nimetyissä ryhmissään. Tilat ilmaistaan tekstinä, eivät vain värillä.
+- Hakutulosten kaksi ehdokasryhmää säilyvät. Ympäristötietojen täsmääminen tai
+  tarkistusmerkintä ei takaa korjauksen toimivuutta. Vahvistus selitetään
+  aiemman tapauksen onnistumiseksi tietyssä ympäristössä.
+- Haun jälkeen näkyvät **Kirjoita uusi ratkaisu** ja **Siirry API-ehdotukseen**.
+  Siirtymä kopioi ongelman ja erilliset rajaukset lomakkeeseen mutta ei tee
+  API-kutsua tai tallennusta. Tallentamattoman tekstin korvaaminen kysytään.
+- **Tallenna luonnos** säilyttää tekstin lomakkeessa ja kertoo, ettei tietue
+  vielä näy haussa. **Siirry luonnoksen tarkistamiseen** avaa juuri tallennetun
+  tietueen ja sen ratkaisuvaiheet hallinnassa. Uusi tallentamaton muutos
+  piilottaa vanhan tarkistuspolun, kunnes muutos tallennetaan.
+- API-ehdotus on kokeilematon. Pyyntö vaatii täytetyt ongelma- ja ympäristökentät,
+  erillisen lähetysluvan sekä painikkeen käytön. Vastaus ei tallennu automaattisesti.
+  Nykyisen otsikon ja ratkaisun korvaaminen kysytään. Lähetyslupa nollautuu
+  onnistuneen ehdotuksen tai lähetettävien tietojen muuttumisen jälkeen.
+- Vahvistus edellyttää vahvistajan nimeä ja nimenomaista aiemman tapauksen
+  kokeilun hyväksyntää. Muokkaus palauttaa tietueen luonnokseksi. Käytöstä
+  poisto säilyttää tietueen ja syyn historiassa; kaikkia aiempia muokkaustekstejä
+  ei esitetä versionhistoriana.
+
+Lyhyet ohjeet ovat toimintojen yhteydessä. Käyttäjän erillinen
+[pikaohje](13_ratkaisumuistin_pikaohje.md) kattaa haun, rajaukset,
+API-ehdotuksen, tallennuksen, vahvistuksen, muokkauksen ja käytöstä poiston.
+Aiempi tekninen työnkulkuohje päivitettiin vastaamaan välilehtiä.
+
+### Virheet ja näppäimistö
+
+Lomaketta ei nollata välilehtien vaihdossa tai epäonnistuneessa tallennuksessa,
+API-pyynnössä tai listan latauksessa. Myös hakuteksti ja rajaukset säilyvät.
+Poistamisen syy muistetaan seuraavan yrityksen oletustekstinä virheen jälkeen.
+Jos vahvistus onnistui mutta listan päivitys epäonnistui, ilmoitus erottaa
+nämä tulokset. Onnistunut luonnostallennus ei riipu seuraavan listapyynnön
+onnistumisesta. Sivun päivittämisen mahdollisesta tekstin menetyksestä kerrotaan.
+
+Välilehdillä on tablist/tab/tabpanel-roolit, nimet, valintatieto ja hallittu
+Tab-järjestys. Nuolinäppäimet sekä Home/End siirtävät välilehtikohdistusta;
+Enter tai välilyönti avaa näkymän. Nuolinäppäimet eivät aloita listapyyntöä.
+Fokus palautetaan pyynnön jälkeen tulosotsikkoon, luonnoksen ilmoitukseen,
+valittuun tietueeseen tai virheeseen. Puuttuva vahvistajan nimi ohjaa kyseiseen
+kenttään. Kortit ja toimintopainikkeet nimetään saavutettavasti tietueen mukaan.
+
+Kohdistukselle on näkyvä reunus. Paneelien `hidden` piilottaa myös niiden
+sisällön. Ympäristökentät vaihtuvat allekkain 760 pikselin rajalla, painikkeet
+rivittyvät ja tekstialueet eivät edellytä kiinteää vähimmäisleveyttä.
+
+### Testit ja niiden rajat
+
+| Tarkistus | Tulos |
+|---|---|
+| Python-regressiot `unittest discover -s tests` | **217/217 hyväksytty** |
+| `node tests/ui_memory_test.cjs` | **19/19 hyväksytty** |
+| `git diff --check` | Hyväksytty |
+| Muuttumattomat hakukoodin ja tietokantarakenteen koodin tarkistussummat | Hyväksytty |
+| Nykyinen käyttäjän tietokanta | Bittitasolla ennallaan, 2 tietuetta |
+| Sovelluksen käynnistys porttiin 8502 ja uuden HTML:n toimitus | Hyväksytty, ilman API-avainta |
+
+UI-testit käyttävät eristettyä DOM-korviketta ja paikallisia vastauksia.
+Ne kattavat oletusnäkymän, välilehtien näppäintapahtumat, kohdistuksen,
+ehdokasryhmät, haun jälkeiset siirtymät, API-luvan, automaattitallennuksen
+puuttumisen, luonnoksen tarkistuspolun, tilat, muokkauksen, vahvistuksen,
+käytöstä poiston, syyn säilymisen, virheissä säilyvät tekstit, osittain
+onnistuneen muutoksen, vanhentuneen hakuvastauksen ja tekstinä renderöinnin.
+Lisäksi tarkistetaan roolit, nimi- ja ohjeviittaukset sekä responsiivisen CSS:n
+rakennesopimus. Yksittäinen DOM-testi ei vastaa oikeaa selainkoetta.
+
+**Varsinaista selaimen, ruudunlukijan tai kapean ikkunan renderöintikoetta ei
+voitu suorittaa tässä istunnossa.** Selainohjauksen inventaario oli tyhjä,
+ja Chromen avausyritys palautti `Browser is not available: chrome`.
+760/320 pikselin näkymä ja natiivi Tab-/Enter-käyttö on vielä tarkistettava
+oikeassa selaimessa. Tätä ei kirjata automaattitesteillä hyväksytyksi.
+Hakulaadun malliarviointia ei uusittu tässä UI-muutoksessa.
+
+`app.py`, `search.py`, `solution_memory.py`, `desk.py`, `response_rules.py` ja
+`corpus.py` säilyivät tarkistussummiltaan samoina kuin alussa. Käyttäjän
+`data/solutions.sqlite3` säilyi SHA-256-arvolla
+`b2082b2b89d36f015b02123eef56e7173a8312ac2d01ea3ddb022d7c401374e3`.
+Tietokantaa tai testilokeja ei lisätä Gitiin.
+
+Paikalliset todisteet ovat `data/ui-workflow/test-results.json`,
+`python-tests.log`, `ui-tests.log` ja `application-check.json`.
+Ulkoisia API-kutsuja ei tehty, muutoksia ei pushattu eikä vanhaa projektia
+muutettu. Uusi näkymä palvelee osoitteessa `http://127.0.0.1:8502/memory`;
+selain on päivitettävä palvelimen uudelleenkäynnistyksen jälkeen.

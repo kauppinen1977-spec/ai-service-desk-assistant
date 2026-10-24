@@ -1,89 +1,145 @@
-// DOM substitute: workflow, no automatic API call/save, safe text rendering, stale search.
+// Local DOM contract/workflow tests. No browser, network or external API is used.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const elements={};
-function element(tag='div') {return {tag,value:'',textContent:'',children:[],disabled:false,checked:false,handlers:{},
- append(...items){this.children.push(...items)},replaceChildren(...items){this.children=items},focus(){},
- addEventListener(name,handler){this.handlers[name]=handler},reset(){for(const key of ['title','problem','environment','solution','operating_system','product','product_version'])elements[key].value=''}};}
+const {test}=require('node:test');
 const html=fs.readFileSync('memory.html','utf8');
-for(const [,id] of html.matchAll(/\bid="([^"]+)"/g))elements[id]=element();
-elements.backend.value='keyword';
-const calls=[];let rows=[],pendingSearch=null,holdSearch=false,environmentStatus='needs_review',emptySearch=false,mixedSearch=false;
-const row={id:'SOL-test',title:'<img src=x onerror=alert(1)>',problem:'VPN E42',environment:'Harjoitusympäristö 5.2',solution:'Testikorjaus',
- status:'draft',revision:1,updated_at:'2026-10-24T10:00:00Z'};
-const response=data=>({ok:true,json:async()=>data});
-const context={document:{getElementById:id=>elements[id],createElement:element,querySelectorAll:()=>Object.values(elements)},
- window:{confirm:()=>true,prompt:()=> 'Vanhentunut'},fetch:async(url,options)=>{
-  const action=url.split('/').pop(),body=JSON.parse(options.body);calls.push({action,body});
-  if(action==='list')return response({records:rows});
-  if(action==='save'){rows=[{...row,...body}];return response({record:rows[0]});}
-  if(action==='verify'){rows=[{...rows[0],status:'verified',revision:2,verified_by:body.verified_by,verified_at:row.updated_at}];return response({record:rows[0]});}
-  if(action==='retire'){rows=[{...rows[0],status:'retired',revision:3,retirement_reason:body.reason}];return response({record:rows[0]});}
-  if(action==='search'){
-   if(holdSearch)return new Promise(resolve=>pendingSearch=resolve);
-   const hits=(emptySearch?[]:rows.filter(r=>r.status==='verified')).map(record=>({record,score:1,environment_check:{status:environmentStatus,missing_record_fields:environmentStatus==='needs_review'?['product_version']:[],missing_query_fields:[]}}));
-   if(mixedSearch)hits.push({record:{...rows[0],id:'SOL-review',title:'Puutteellinen testiehdokas'},score:.5,environment_check:{status:'needs_review',missing_record_fields:['operating_system'],missing_query_fields:[]}});
-   return response({state:'candidates',hits,compatible_hits:hits.filter(hit=>hit.environment_check.status==='declared_match'),review_hits:hits.filter(hit=>hit.environment_check.status==='needs_review')});
-  }
-  if(action==='suggest')return response({state:'unverified',suggestion:{title:'API-luonnos',solution:'Kokeile tätä.',limitations:'Ei testattu.'}});
-  throw Error(action);
- }};
-vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],context);
-const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function all(e){return [e,...e.children.flatMap(all)]}
-function findAction(label){return all(elements.records).find(e=>e.tag==='button'&&e.textContent===label);}
-function candidateGroup(label){return elements.hits.children.find(e=>e.children.some(child=>child.tag==='h3'&&child.textContent===label));}
+const fields=['title','problem','environment','solution','operating_system','product','product_version'];
+const env={operating_system:'Windows 11',product:'AuroraVPN',product_version:'5.2'};
+const sample={id:'SOL-fixture',title:'VPN E42',problem:'Kuvitteellinen VPN E42 -ongelma.',environment:'Harjoitusympäristö.',solution:'Kuvitteellinen korjaus.',...env,status:'draft',revision:1,updated_at:'2026-10-24T10:00:00Z'};
 const compatibleLabel='Ilmoitettujen ympäristötietojen perusteella yhteensopivat ehdokkaat';
 const reviewLabel='Puuttuvien tietojen vuoksi tarkistettavat ehdokkaat';
-
-(async()=>{
- await settle();assert.deepEqual(calls.map(c=>c.action),['list']);
- elements['filter-operating_system'].value='Windows 11';elements['filter-product'].value='HarjoitusVPN';elements['filter-product_version'].value='5.2';
- elements.query.value='VPN E42';elements['copy-query'].onclick();
- for(const key of ['operating_system','product','product_version'])assert.equal(elements[key].value,elements['filter-'+key].value,'explicit filters copied to editor');
- elements.problem.value='VPN E42';elements.environment.value='Harjoitusympäristö';
- await elements.suggest.onclick();assert.equal(calls.length,1,'API requires explicit send checkbox');
- elements.consent.checked=true;await elements.suggest.onclick();
- assert.equal(elements.title.value,'API-luonnos');assert(elements.solution.value.includes('Ei testattu.'));
- assert(!calls.some(c=>c.action==='save'),'API response must not auto-save');
- elements.title.value=row.title;
- elements.editor.onsubmit({preventDefault(){}});await settle();
- assert(calls.some(c=>c.action==='save'));assert.equal(rows[0].status,'draft');
- assert.equal(rows[0].operating_system,'Windows 11');assert.equal(rows[0].product,'HarjoitusVPN');assert.equal(rows[0].product_version,'5.2');
- for(const key of ['operating_system','product','product_version'])assert.equal(elements[key].value,'','saved editor reset');
- findAction('Muokkaa').onclick();assert.equal(elements.product_version.value,'5.2');elements.new.onclick();
- assert(all(elements.records).some(e=>e.tag==='h3'&&e.textContent===row.title));
- assert(!all(elements.records).some(e=>e.tag==='img'),'saved HTML must render as text');
- elements.reviewer.value='Testaaja';await findAction('Vahvista toimivaksi').onclick();
- assert.equal(rows[0].status,'verified');
- elements.query.value='VPN E42';await elements.search.onclick();assert(all(elements.hits).some(e=>e.textContent===row.title));
- assert.equal(calls.filter(c=>c.action==='search').at(-1).body.filters.product_version,'5.2');
- assert(all(elements.hits).some(e=>e.textContent.includes('Ympäristö tarkistettava')));
- assert(all(elements.hits).some(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio'));
- assert(all(candidateGroup(compatibleLabel)).some(e=>e.textContent.includes('yhteensopivia ehdokkaita ei löytynyt')));
- assert(all(candidateGroup(reviewLabel)).some(e=>e.textContent===row.title));
- assert(all(elements.hits).some(e=>e.textContent.includes('ei takaa ratkaisun toimivuutta')));
-
- environmentStatus='declared_match';await elements.search.onclick();
- assert(all(elements.hits).some(e=>e.textContent.includes('Käyttöjärjestelmä, tuote ja versio täsmäävät. Tarkista silti')));
- assert(all(candidateGroup(compatibleLabel)).some(e=>e.textContent===row.title));
- assert(!all(candidateGroup(reviewLabel)).some(e=>e.textContent===row.title));
- mixedSearch=true;await elements.search.onclick();
- assert(all(candidateGroup(compatibleLabel)).some(e=>e.textContent===row.title));
- assert(all(candidateGroup(reviewLabel)).some(e=>e.textContent==='Puutteellinen testiehdokas'));
- assert(!all(candidateGroup(compatibleLabel)).some(e=>e.textContent==='Puutteellinen testiehdokas'));mixedSearch=false;
-
- for(const key of ['operating_system','product','product_version']){
-  elements['filter-'+key].handlers.input();assert(!all(elements.hits).some(e=>e.textContent===row.title),'filter changes invalidate results');
-  await elements.search.onclick();
+const clone=value=>JSON.parse(JSON.stringify(value));
+function all(node){return [node,...node.children.flatMap(all)];}
+function createHarness(initial=[]){
+ const elements={},nodes=[],calls=[],confirmations=[],prompts=[],confirmText=[],promptDefaults=[],faults=new Map(),overrides=new Map();let serial=0,held=null,searchResult=null;
+ const document={activeElement:null,getElementById:id=>elements[id],createElement:tag=>element(tag),querySelectorAll:()=>nodes.filter(e=>e.isConnected&&['button','input','textarea','select'].includes(e.tag))};
+ function connected(e,value){e.isConnected=value;for(const child of e.children)connected(child,value);}
+ function element(tag){const e={tag,children:[],parent:null,attributes:{},_text:'',value:'',checked:false,disabled:false,hidden:false,open:false,tabIndex:-1,isConnected:false,handlers:{},
+  append(...items){for(const child of items){child.parent=this;this.children.push(child);connected(child,this.isConnected);}},
+  replaceChildren(...items){for(const child of this.children){child.parent=null;connected(child,false);}this.children=[];this._text='';this.append(...items);},
+  addEventListener(name,handler){this.handlers[name]=handler;},setAttribute(name,value){this.attributes[name]=String(value);},getAttribute(name){return this.attributes[name]??null;},
+  focus(){if(!this.isConnected||this.disabled)return;for(let p=this;p;p=p.parent)if(p.hidden)return;document.activeElement=this;},
+  reset(){for(const key of fields)elements[key].value='';elements.consent.checked=false;}
+ };Object.defineProperty(e,'textContent',{get(){return this._text;},set(value){this.replaceChildren();this._text=String(value);}});nodes.push(e);return e;}
+ const root=element('root');root.isConnected=true;const stack=[root];
+ const markup=html.replace(/<style>[\s\S]*?<\/style>/,'').replace(/<script>[\s\S]*?<\/script>/,'');
+ const voids=new Set(['meta','input','br','hr','option','link']);
+ for(const token of markup.match(/<[^>]+>|[^<]+/g)||[]){
+  if(token.startsWith('</')){const tag=token.match(/^<\/([\w-]+)/)?.[1];let at=stack.length-1;while(at>0&&stack[at].tag!==tag)at--;if(at>0)stack.length=at;continue;}
+  if(token.startsWith('<')){const match=token.match(/^<([a-z][\w-]*)([\s\S]*?)>$/i);if(!match)continue;const e=element(match[1]);
+   for(const [,key,value] of match[2].matchAll(/([:\w-]+)(?:="([^"]*)")?/g))e.attributes[key]=value??'';
+   e.id=e.attributes.id||'';if(e.id){assert(!elements[e.id],'duplicate HTML id '+e.id);elements[e.id]=e;}
+   e.hidden='hidden' in e.attributes;e.checked='checked' in e.attributes;e.tabIndex=Number(e.attributes.tabindex??-1);e.type=e.attributes.type||'';e.className=e.attributes.class||'';
+   if(e.tag==='select')e.value='keyword';stack.at(-1).append(e);if(!voids.has(e.tag))stack.push(e);continue;
+  }if(token.trim())stack.at(-1)._text+=token.trim();
  }
- emptySearch=true;await elements.search.onclick();
- assert(all(elements.hits).some(e=>e.textContent.includes('Hakuehdokkaita ei löytynyt')));emptySearch=false;
- elements.query.handlers.input();assert(!all(elements.hits).some(e=>e.textContent===row.title));
- holdSearch=true;const pending=elements.search.onclick();await settle();
- assert(elements.query.disabled,'inputs locked while request is pending');
- elements.query.handlers.input();pendingSearch(response({state:'candidates',hits:[{record:rows[0],score:1}]}));await pending;
- assert(!all(elements.hits).some(e=>e.textContent===row.title),'outdated response must be ignored');
- holdSearch=false;await findAction('Poista käytöstä').onclick();assert.equal(rows[0].status,'retired');
- assert(!findAction('Vahvista toimivaksi'));assert(!findAction('Muokkaa'));assert(!findAction('Poista käytöstä'));
- console.log('Ratkaisumuistin UI: API-lupa, luonnos, vahvistus, haku, poisto, tekstinä renderöinti ja vanhentuneet vastaukset OK (DOM-korvike).');
-})().catch(error=>{console.error(error);process.exitCode=1});
+ let rows=clone(initial);const response=(value,ok=true)=>({ok,json:async()=>clone(value)});
+ const context={document,window:{confirm:text=>{confirmText.push(text);return confirmations.length?confirmations.shift():true;},prompt:(message,initial='')=>{promptDefaults.push(initial);return prompts.length?prompts.shift():(initial||'Kuvitteellinen poistamisen syy');}},fetch:async(url,options)=>{
+  assert(url.startsWith('/api/memory/'),'Only mocked local memory actions allowed');const action=url.split('/').pop(),body=JSON.parse(options.body);calls.push({action,body});
+  const pending=faults.get(action);if(pending?.length){const fault=pending.shift();if(fault instanceof Error)throw fault;return response(fault,false);}
+  const override=overrides.get(action);if(override?.length)return response(override.shift());
+  if(action==='list')return response({records:rows});
+  if(action==='save'){const old=rows.find(row=>row.id===body.id);const row={...sample,...body,id:old?old.id:'SOL-new-'+(++serial),revision:old?old.revision+1:1,status:'draft',verified_at:null,verified_by:null};rows=rows.filter(r=>r.id!==row.id);rows.push(row);return response({record:row});}
+  if(action==='verify'||action==='retire'){const row=rows.find(r=>r.id===body.id);assert(row);Object.assign(row,action==='verify'?{status:'verified',verified_by:body.verified_by,verified_at:sample.updated_at}:{status:'retired',retirement_reason:body.reason},{revision:row.revision+1});return response({record:row});}
+  if(action==='search'){if(held)return new Promise(resolve=>held.resolve=resolve);if(searchResult)return response(searchResult);return response({state:'empty',hits:[],compatible_hits:[],review_hits:[]});}
+  if(action==='suggest')return response({state:'unverified',suggestion:{title:'API-luonnos',solution:'Kuvitteellinen kokeilematon ehdotus.',limitations:'Ei kokeiltu oikeassa ympäristössä.'}});
+  throw Error(action);
+ }};
+ vm.runInNewContext(html.match(/<script>([\s\S]*?)<\/script>/)[1],context);
+ function visible(e){for(let p=e;p;p=p.parent)if(p.hidden)return false;return true;}
+ async function click(id){const e=typeof id==='string'?elements[id]:id;assert(e&&visible(e)&&!e.disabled,'control unavailable '+(e?.id||e?.textContent||id));e.focus();return e.onclick?.();}
+ async function submit(id){assert(visible(elements[id]));return elements[id].onsubmit({preventDefault(){}});}
+ function input(id,value){elements[id].value=value;elements[id].handlers.input?.({target:elements[id]});}
+ function snapshot(){return fields.map(key=>elements[key].value);}
+ const harness={elements,document,calls,confirmations,prompts,confirmText,promptDefaults,get rows(){return rows;},click,submit,input,snapshot,visible,
+  fill(data=sample){for(const key of fields)elements[key].value=data[key]??'';},
+  fail(action,error={error:'Kuvitteellinen palvelinvirhe',help:'Yritä uudelleen.'}){if(!faults.has(action))faults.set(action,[]);faults.get(action).push(error);},
+  respond(action,value){if(!overrides.has(action))overrides.set(action,[]);overrides.get(action).push(value);},
+  setSearch(value){searchResult=value;},count(action){return calls.filter(call=>call.action===action).length;},
+  action(label){return all(elements.records).find(e=>e.tag==='button'&&e.textContent===label);},
+  group(label){return elements.hits.children.find(e=>e.children.some(child=>child.tag==='h3'&&child.textContent===label));},
+  async key(id,key){let prevented=false;const e=elements[id];e.focus();await e.onkeydown?.({key,preventDefault(){prevented=true;}});return prevented;},
+  hold(){held={};return held;},release(value){const item=held;held=null;item.resolve(response(value));}
+ };return harness;
+}
+function hit(record,status='declared_match'){return {record,score:.8,environment_check:{status,missing_record_fields:status==='needs_review'?['product_version']:[],missing_query_fields:[]}};}
+function result(hits){return {state:'candidates',hits,compatible_hits:hits.filter(h=>h.environment_check.status==='declared_match'),review_hits:hits.filter(h=>h.environment_check.status==='needs_review')};}
+async function beginEditor(h){await h.click('tab-editor');h.fill();}
+async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for(const key in env)h.elements['filter-'+key].value=env[key];return h.submit('search-form');}
+
+ test('Haku on oletus, muut paneelit piilossa, sivu ei lataa hallintaa automaattisesti',()=>{
+ const h=createHarness();assert.equal(h.elements['tab-search'].getAttribute('aria-selected'),'true');assert(!h.elements['panel-search'].hidden);assert(h.elements['panel-editor'].hidden);assert(h.elements['panel-library'].hidden);assert(h.elements['next-steps'].hidden);assert.equal(h.calls.length,0);
+ });
+ test('Välilehdet: nuolinäppäimet, Home ja End siirtävät fokusta; Enter ja välilyönti avaavat näkymän',async()=>{
+ const h=createHarness();assert(await h.key('tab-search','ArrowRight'));assert.equal(h.document.activeElement.id,'tab-editor');assert(!h.elements['panel-search'].hidden);assert.equal(h.calls.length,0);
+ await h.key('tab-editor','Enter');assert(!h.elements['panel-editor'].hidden);assert.equal(h.elements['tab-editor'].tabIndex,0);
+ await h.key('tab-editor','End');assert.equal(h.document.activeElement.id,'tab-library');assert(h.elements['panel-library'].hidden);
+ await h.key('tab-library',' ');assert(!h.elements['panel-library'].hidden);assert.equal(h.count('list'),1);
+ await h.key('tab-library','Home');assert.equal(h.document.activeElement.id,'tab-search');await h.key('tab-search','ArrowLeft');assert.equal(h.document.activeElement.id,'tab-library');assert.equal(await h.key('tab-library','Tab'),false);
+ });
+ test('Haku näyttää erilliset ehdokasryhmät, varoitukset ja haun jälkeiset siirtymät',async()=>{
+ const h=createHarness(),known={...sample,status:'verified'},review={...sample,id:'SOL-review',title:'Puutteellinen tapaus',status:'verified'};h.setSearch(result([hit(known),hit(review,'needs_review')]));await search(h);
+ assert(!h.elements['results-section'].hidden);assert(!h.elements['next-steps'].hidden);assert.equal(h.document.activeElement.id,'results-heading');assert(all(h.group(compatibleLabel)).some(e=>e.textContent===known.title));assert(!all(h.group(compatibleLabel)).some(e=>e.textContent===review.title));assert(all(h.group(reviewLabel)).some(e=>e.textContent===review.title));assert(all(h.elements.hits).some(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio'));
+ assert(html.includes('ei takaa ratkaisun toimivuutta'));assert(all(h.elements.hits).some(e=>e.textContent.includes('Vahvistettu aiemmassa tapauksessa')));
+ await h.click('copy-query');assert(!h.elements['panel-editor'].hidden);assert.equal(h.elements.problem.value,h.elements.query.value);for(const key in env)assert.equal(h.elements[key].value,env[key]);assert.equal(h.document.activeElement.id,'environment');assert.equal(h.count('suggest'),0);assert.equal(h.count('save'),0);
+ });
+ test('Tyhjä ja pelkästään tarkistettavia sisältävä haku kertoo yhteensopivien puuttumisesta',async()=>{
+ const h=createHarness();await search(h);assert(all(h.elements.hits).some(e=>e.textContent.includes('yhteensopivia ehdokkaita ei löytynyt')));assert(!h.elements['next-steps'].hidden);
+ h.setSearch(result([hit({...sample,status:'verified'},'needs_review')]));await search(h);assert(all(h.group(compatibleLabel)).some(e=>e.textContent.includes('yhteensopivia ehdokkaita ei löytynyt')));assert(all(h.group(reviewLabel)).some(e=>e.tag==='article'));
+ });
+ test('API-siirtymä ei lähetä mitään ja tallentamatonta tekstiä ei korvata ilman hyväksyntää',async()=>{
+ const h=createHarness();await search(h);await h.click('start-suggestion');assert(!h.elements['panel-editor'].hidden);assert(h.elements['api-options'].open);assert.equal(h.document.activeElement.id,'api-heading');assert.equal(h.count('suggest'),0);h.fill();const before=h.snapshot();await h.click('tab-search');h.confirmations.push(false);await h.click('copy-query');assert.deepEqual(h.snapshot(),before);assert(!h.elements['panel-search'].hidden);
+ await h.click('tab-editor');await h.click('tab-library');await h.click('tab-editor');assert.deepEqual(h.snapshot(),before);
+ });
+ test('API-ehdotus vaatii erillisen luvan, pysyy kokeilemattomana eikä tallenna automaattisesti',async()=>{
+ const h=createHarness();await h.click('tab-editor');h.elements['api-options'].open=true;await h.click('suggest');assert.equal(h.count('suggest'),0);assert.equal(h.document.activeElement.id,'problem');h.fill();await h.click('suggest');assert.equal(h.count('suggest'),0);assert.equal(h.document.activeElement.id,'consent');
+ h.elements.consent.checked=true;await h.click('suggest');assert.equal(h.count('suggest'),1);assert.equal(h.count('save'),0);assert.equal(h.elements.title.value,'API-luonnos');assert(h.elements.solution.value.includes('Ei kokeiltu'));assert(h.elements.limitations.textContent.includes('Kokeilematon'));assert(!h.elements.consent.checked);assert.equal(h.document.activeElement.id,'solution');
+ const request=h.calls.find(call=>call.action==='suggest').body;assert.deepEqual(Object.keys(request).sort(),['environment','problem','send_to_api']);h.elements.consent.checked=true;h.input('environment','Uusi kuvitteellinen ympäristö');assert(!h.elements.consent.checked);
+ });
+ test('API-virhe, korvaamisen peruminen ja virheellinen vastaus säilyttävät lomaketekstin',async()=>{
+ const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();h.confirmations.push(false);await h.click('suggest');assert.equal(h.count('suggest'),0);assert.deepEqual(h.snapshot(),before);
+ h.fail('suggest',new Error('Kuvitteellinen yhteysvirhe'));await h.click('suggest');assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');assert.equal(h.elements.notice.getAttribute('role'),'alert');assert(!h.elements.suggest.disabled);
+ h.respond('suggest',{state:'unverified',suggestion:{title:'Ei saa korvata'}});await h.click('suggest');assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('ei voitu lukea'));
+ });
+ test('Tallennusvirhe säilyttää kaikki kentät ja epäonnistuneen muokkauksen tietue-ID:n',async()=>{
+ const h=createHarness([{...sample,status:'verified'}]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Tallentamaton tarkennus');const before=h.snapshot();h.fail('save',{error:'Versioristiriita',help:'Päivitä lista.'});await h.submit('editor');assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');assert(!h.elements['save-draft'].disabled);assert(h.elements['saved-next'].hidden);
+ await h.submit('editor');const saves=h.calls.filter(call=>call.action==='save');assert.equal(saves.length,2);assert.equal(saves[0].body.id,sample.id);assert.equal(saves[1].body.id,sample.id);assert.equal(saves[1].body.revision,sample.revision);
+ });
+ test('Onnistunut tallennus on luonnos ja suora siirtymä avaa juuri sen tarkistukseen',async()=>{
+ const h=createHarness();await beginEditor(h);const before=h.snapshot();await h.submit('editor');assert.equal(h.rows[0].status,'draft');assert.deepEqual(h.snapshot(),before);assert(!h.elements['saved-next'].hidden);assert(h.elements['saved-message'].textContent.includes('ei vielä näy haussa'));assert.equal(h.document.activeElement.id,'saved-heading');assert.equal(h.count('list'),0);
+ await h.click('review-saved');assert(!h.elements['panel-library'].hidden);assert.equal(h.count('list'),1);const card=all(h.elements.records).find(e=>e.id==='record-'+h.rows[0].id);assert.equal(h.document.activeElement,card);assert(card.getAttribute('aria-label').includes(h.rows[0].title));assert(all(card).filter(e=>e.tag==='button').every(e=>e.getAttribute('aria-label').includes(h.rows[0].title)));assert(all(card).find(e=>e.tag==='details').open);assert(h.action('Vahvista aiempi tapaus'));
+ });
+ test('Listan latausvirhe tallennuksen jälkeen ei hävitä tekstiä tai esitä tallennusta epäonnistuneena',async()=>{
+ const h=createHarness();await beginEditor(h);await h.submit('editor');const before=h.snapshot();h.fail('list');await h.click('review-saved');assert.equal(h.rows.length,1);assert.equal(h.rows[0].status,'draft');assert.deepEqual(h.snapshot(),before);await h.click('refresh');assert(h.action('Vahvista aiempi tapaus'));assert.equal(h.elements.notice.getAttribute('role'),'status');
+ });
+ test('Vahvistus vaatii nimen ja aiemman tapauksen kokeilun hyväksynnän',async()=>{
+ const h=createHarness([sample]);await h.click('tab-library');await h.click(h.action('Vahvista aiempi tapaus'));assert.equal(h.count('verify'),0);assert.equal(h.document.activeElement.id,'reviewer');h.elements.reviewer.value='Harjoitustestaaja';h.confirmations.push(false);await h.click(h.action('Vahvista aiempi tapaus'));assert.equal(h.count('verify'),0);
+ await h.click(h.action('Vahvista aiempi tapaus'));assert.equal(h.rows[0].status,'verified');assert(h.confirmText.at(-1).includes('aiemmassa tapauksessa'));assert(h.confirmText.at(-1).includes('ei takaa'));assert.equal(h.calls.find(c=>c.action==='verify').body.confirmed,true);assert(!h.action('Vahvista aiempi tapaus'));
+ });
+ test('Vahvistuksen jälkeinen listavirhe kertoo tallennetusta vahvistuksesta ja säilyttää piilotetun lomakkeen',async()=>{
+ const h=createHarness([sample]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Kesken oleva muokkaus');const before=h.snapshot();await h.click('tab-library');h.elements.reviewer.value='Testaaja';h.fail('list');await h.click(h.action('Vahvista aiempi tapaus'));assert.equal(h.rows[0].status,'verified');assert(h.elements.notice.textContent.includes('Vahvistus tallennettiin'));assert(h.elements.notice.textContent.includes('Listan päivitys epäonnistui'));assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');
+ });
+ test('Muokkaus on luonnos, käytöstä poisto säilyttää historian ja tilat näkyvät tekstinä',async()=>{
+ const h=createHarness([{...sample,status:'verified',verified_by:'Testi',verified_at:sample.updated_at}]);await h.click('tab-library');assert(all(h.elements.records).some(e=>e.textContent.includes('Vahvistetut – aiemmassa tapauksessa kokeillut')));await h.click(h.action('Muokkaa'));assert(h.elements.editing.textContent.includes('poistaa aiemman vahvistuksen'));h.input('solution','Päivitetty ohje');await h.submit('editor');assert.equal(h.rows[0].status,'draft');assert.equal(h.rows[0].verified_by,null);await h.click('review-saved');const before=h.snapshot();h.prompts.push(null);await h.click(h.action('Poista käytöstä'));assert.equal(h.count('retire'),0);h.prompts.push('Harjoituksen ohje vanheni');await h.click(h.action('Poista käytöstä'));assert.equal(h.rows[0].status,'retired');assert(all(h.elements.records).some(e=>e.textContent.includes('Poistetut käytöstä – historia')));assert(all(h.elements.records).some(e=>e.textContent.includes('Harjoituksen ohje vanheni')));assert(!h.action('Muokkaa'));assert(!h.action('Vahvista aiempi tapaus'));assert(!h.action('Poista käytöstä'));assert.deepEqual(h.snapshot(),before);
+ await h.click('tab-editor');const count=h.count('save');await h.submit('editor');assert.equal(h.count('save'),count);assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('poistettu käytöstä'));
+ });
+ test('Poistamisen syy säilyy seuraavassa yrityksessä, jos palvelin hylkää käytöstä poiston',async()=>{
+ const h=createHarness([sample]);await h.click('tab-library');h.prompts.push('Kuvitteellinen vanhentunut ohje');h.fail('retire',{error:'Tilapäinen virhe'});await h.click(h.action('Poista käytöstä'));assert.equal(h.rows[0].status,'draft');assert.equal(h.document.activeElement.id,'notice');await h.click(h.action('Poista käytöstä'));assert.equal(h.promptDefaults.at(-1),'Kuvitteellinen vanhentunut ohje');assert.equal(h.rows[0].retirement_reason,'Kuvitteellinen vanhentunut ohje');
+ });
+ test('Tallentamaton uusi muutos piilottaa vanhan luonnoksen tarkistuspolun kunnes se tallennetaan',async()=>{
+ const h=createHarness();await beginEditor(h);await h.submit('editor');assert(!h.elements['saved-next'].hidden);h.input('solution','Uusi tallentamaton muutos');assert(h.elements['saved-next'].hidden);assert(h.elements.editing.textContent.includes('tallentamattomia muutoksia'));await h.click('tab-library');await h.click('tab-editor');assert.equal(h.elements.solution.value,'Uusi tallentamaton muutos');await h.submit('editor');assert(!h.elements['saved-next'].hidden);assert.equal(h.rows.length,1);await h.click('review-saved');assert(all(h.elements.records).some(e=>e.textContent==='Uusi tallentamaton muutos'));
+ });
+ test('Hakupyyntövirhe säilyttää kuvauksen ja rajaukset, vapauttaa kentät ja piilottaa vanhan tuloksen',async()=>{
+ const h=createHarness();h.fail('search',{error:'Kuvitteellinen hakuvirhe'});await search(h);assert.equal(h.elements.query.value,'Kuvitteellinen VPN E42 -ongelma.');for(const key in env)assert.equal(h.elements['filter-'+key].value,env[key]);assert(!h.elements.query.disabled);assert.equal(h.document.activeElement.id,'notice');assert(h.elements['results-section'].hidden);assert(h.elements['next-steps'].hidden);await h.submit('search-form');assert(!h.elements['results-section'].hidden);assert.equal(h.elements.notice.getAttribute('role'),'status');
+ });
+ test('Vanhentunut hakuvastaus sivuutetaan ja kesken olevan pyynnön kentät lukitaan',async()=>{
+ const h=createHarness();const held=h.hold();const pending=search(h);await new Promise(resolve=>setImmediate(resolve));assert(held.resolve);assert(h.elements.query.disabled);h.input('filter-product_version','6.1');h.release(result([hit({...sample,status:'verified'})]));await pending;assert(!h.elements.query.disabled);assert(h.elements['results-section'].hidden);assert(h.elements['next-steps'].hidden);
+ });
+ test('Tekstit renderöidään tekstinä, eivät HTML:nä',async()=>{
+ const malicious={...sample,title:'<img src=x onerror=alert(1)>',solution:'<script>bad()</script>'};const h=createHarness([malicious]);await h.click('tab-library');assert(all(h.elements.records).some(e=>e.textContent===malicious.title));assert(!all(h.elements.records).some(e=>e.tag==='img'||e.tag==='script'));h.setSearch(result([hit({...malicious,status:'verified'})]));await h.click('tab-search');await search(h);assert(all(h.elements.hits).some(e=>e.textContent===malicious.title));
+ });
+ test('Semanttinen välilehtirakenne, kenttien nimet, fokus ja kapean näkymän CSS-sopimus',()=>{
+ const h=createHarness();for(const name of ['search','editor','library']){const tab=h.elements['tab-'+name],panel=h.elements['panel-'+name];assert.equal(tab.getAttribute('role'),'tab');assert.equal(tab.getAttribute('aria-controls'),panel.id);assert.equal(panel.getAttribute('role'),'tabpanel');assert.equal(panel.getAttribute('aria-labelledby'),tab.id);}
+ for(const e of Object.values(h.elements).filter(e=>['input','textarea','select'].includes(e.tag)))assert(html.includes('for="'+e.id+'"')||e.id==='consent','missing visible label '+e.id);
+ for(const e of Object.values(h.elements))for(const id of (e.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean))assert(h.elements[id],'missing description '+id);
+ assert(html.includes('[hidden]{display:none!important}'));assert(html.includes(':focus-visible'));assert(html.includes('@media(max-width:760px)'));assert(html.includes('.environment-fields{grid-template-columns:1fr}'));assert(html.includes('repeat(3,minmax(0,1fr))'));assert(html.includes('flex-wrap:wrap'));assert(html.includes('min-width:0'));assert.equal(h.elements['search-form'].tag,'form');assert.equal(h.elements.search.type,'submit');
+ });

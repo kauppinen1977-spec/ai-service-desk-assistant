@@ -1,5 +1,7 @@
 # Ratkaisumuisti: kehitysversio
 
+Käyttäjän [pikaohje](13_ratkaisumuistin_pikaohje.md) kuvaa nykyiset välilehdet ja työnkulun.
+
 Tavoite: säilytä tukihenkilön vahvistamat ympäristökohtaiset ratkaisut ja löydä
 ne myöhemmissä tukipyynnöissä. Alkuperäinen PoC säilyy tagissa `v0.1.0-poc`.
 Kehitys tehdään haarassa `feature/solution-memory`, ei varaversion tagissa.
@@ -19,17 +21,28 @@ pyynnöt, mutta vahvistajan nimi ei ole todennettu käyttäjätunnus.
 
 ## Työnkulku
 
-1. Kuvaa oireet ja ympäristö, hae aiempia vahvistettuja ratkaisuja.
-2. Jos tarvitset uuden ratkaisun, täytä oikealla ongelma ja ympäristö.
-3. Voit kirjoittaa ratkaisun itse tai pyytää erikseen API-ehdotuksen.
-4. Tallenna luonnos. Se ei vielä näy hauissa.
-5. Testaa ratkaisu ilmoitetussa ympäristössä, kirjoita vahvistajan tunniste ja
-   vahvista kyseinen versio toimivaksi. Vasta nyt se tulee hakuun.
-6. Muokkaus palauttaa ratkaisun luonnokseksi ja poistaa vahvistuksen.
-7. Virheellisen tai vanhentuneen ratkaisun poistaminen käytöstä sulkee sen
-   hauista. Tietue ja poistamisen syy säilyvät. Historiassa ei vielä säilytetä
-   jokaisen muokkauksen aiempaa tekstiä; revisionumero ehkäisee vanhan
-   selainversion vahingossa tekemän ylikirjoituksen.
+1. Aloita **Haku**-välilehdellä ongelmasta ja ympäristörajauksista.
+   Hakutulokset ovat aiempien tapausten ehdokkaita, eivät varmoja vastauksia.
+2. Siirry haun jälkeen **Kirjoita uusi ratkaisu**- tai **Siirry API-ehdotukseen**
+   -painikkeella lomakkeeseen. Siirtyminen ei tee API-kutsua.
+3. Kirjoita ratkaisu itse tai pyydä erikseen kokeilematon API-ehdotus.
+   Ehdotus ei tallennu automaattisesti.
+4. **Tallenna luonnos** säilyttää tekstin lomakkeessa ja kertoo luonnostilan.
+   **Siirry luonnoksen tarkistamiseen** avaa juuri tallennetun tietueen
+   **Hallinta ja historia** -välilehdellä. Uudet tallentamattomat muutokset
+   pitää tallentaa ennen tämän siirtymän käyttämistä.
+5. Kokeile tallennettu versio ilmoitetussa ympäristössä. Kirjoita vahvistajan
+   tunniste ja valitse **Vahvista aiempi tapaus** vasta kokeilun jälkeen.
+   Vahvistus koskee aiempaa tapausta tässä ympäristössä, ei uutta ongelmaa.
+6. **Muokkaa** avaa lomakkeen; tallennus palauttaa tietueen luonnokseksi ja
+   poistaa aiemman vahvistuksen.
+7. **Poista käytöstä** sulkee vanhentuneen tietueen hausta. Tietue ja syy
+   säilyvät historiassa. Jokaisen muokkauksen aiempaa tekstiä ei säilytetä;
+   revisionumero ehkäisee vanhan selainversion vahingossa tekemän ylikirjoituksen.
+
+Välilehden vaihtaminen ja epäonnistunut pyyntö säilyttävät lomaketekstin.
+Sivun päivittäminen voi hävittää tallentamattoman tekstin. Näppäimistön
+käyttö ja virheestä jatkaminen on kuvattu pikaohjeessa.
 
 ## Haku ja tallennus
 

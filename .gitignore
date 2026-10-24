@@ -69,6 +69,7 @@
 !/tests/test_memory_http.py
 !/tests/ui_memory_test.cjs
 !/docs/12_solution_memory.md
+!/docs/13_ratkaisumuistin_pikaohje.md
 !/tests/test_safety_stop.py
 !/tests/test_hybrid_fallback.py
 !/tests/test_startup_applicability.py
