@@ -1,5 +1,18 @@
 # AI Service Desk Assistant – PoC
 
+## Ratkaisumuisti: uusi kehitysversio
+
+Haarassa `feature/solution-memory` sovellukseen on lisätty paikallinen
+ratkaisumuisti: luonnoksen tallennus, ihmisen vahvistus, vahvistettujen
+ratkaisujen sana-/vektorihaku, muokkaus ja käytöstä poistaminen. Erillinen
+API-ehdotus on vahvistamaton eikä tallennu automaattisesti.
+
+Käynnistä sovellus entiseen tapaan ja avaa `http://127.0.0.1:8501/memory`.
+[Käyttöohje, rajaukset ja tarkistukset](docs/12_solution_memory.md).
+Alkuperäinen PoC-näkymä toimii edelleen juuressa `/`; alkuperäinen julkaisu
+säilyy muuttumattomana tagissa `v0.1.0-poc`. Alla oleva aiempi testiraportointi
+koskee alkuperäistä PoC:ta, ei uuden ratkaisumuistin hyväksyntää.
+
 Paikallinen IT-palvelupisteen avustajaprototyyppi. Julkaisuun rajattu
 `batch1`-kokonaisuus sisältää 30 kuvitteellisen harjoitusorganisaation runbookia.
 Sovellus erottaa hakuehdokkaat hyväksytystä ratkaisuehdotuksesta ja näyttää

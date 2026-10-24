@@ -113,6 +113,12 @@ def call_model(ticket,docs,opener=None):
       'Sovellus lisää valitun lähteen alkuperäiset vaiheet ja tarkentavat kysymykset itse.'),
       'input':json.dumps({'ticket':ticket,'known_facts':facts,'candidate_guides':docs},ensure_ascii=False),
       'text':{'format':{'type':'json_schema','name':'support_selection_v03','strict':True,'schema':schema_for(docs)}}}
+    return assemble(validate_selection(request_model(payload,opener),docs),docs,facts)
+
+def request_model(payload,opener=None):
+    """Shared transport; callers validate the returned object for their own workflow."""
+    key=os.environ.get('OPENAI_API_KEY','').strip()
+    if not key:raise DeskError('OPENAI_API_KEY puuttuu.','missing_api_key',400,'Aseta API-avain palvelimen ympäristömuuttujaan ja käynnistä sovellus uudelleen.')
     req=urllib.request.Request('https://api.openai.com/v1/responses',data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
     try:
         with (opener or urllib.request.urlopen)(req,timeout=45) as resp:
@@ -129,7 +135,7 @@ def call_model(ticket,docs,opener=None):
     except urllib.error.URLError:raise DeskError('Mallipalveluun ei saatu yhteyttä.','api_connection',502,'Tarkista internetyhteys ja palomuuri. Paikallinen hakutila toimii ilman API:a.') from None
     except (OSError,UnicodeError):raise DeskError('Mallipalvelun yhteys tai asetukset epäonnistuivat.','api_connection',502) from None
     except ValueError:raise DeskError('Mallipalvelu palautti virheellisen JSON-vastauksen.','api_format',502) from None
-    return assemble(validate_selection(parse_response(response),docs),docs,facts)
+    return parse_response(response)
 
 def safety_answer(ids,gs,facts,mode,backend):
     docs=[next(g for g in gs if g['id']==id) for id in ids]

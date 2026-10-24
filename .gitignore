@@ -5,6 +5,8 @@
 !/.env.example
 !/README.md
 !/app.py
+!/solution_memory.py
+!/memory.html
 !/desk.py
 !/response_rules.py
 !/search.py
@@ -60,6 +62,10 @@
 !/tests/test_response_rules.py
 !/tests/test_summary.py
 !/tests/test_http.py
+!/tests/test_solution_memory.py
+!/tests/test_memory_http.py
+!/tests/ui_memory_test.cjs
+!/docs/12_solution_memory.md
 !/tests/test_safety_stop.py
 !/tests/test_hybrid_fallback.py
 !/tests/test_startup_applicability.py

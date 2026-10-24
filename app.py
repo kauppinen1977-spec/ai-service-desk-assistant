@@ -6,6 +6,7 @@ import desk
 from corpus import NAMES
 TOKEN=secrets.token_urlsafe(24)
 PAGE=(Path(__file__).parent/'index.html').read_text(encoding='utf-8').replace('__TOKEN__',TOKEN)
+MEMORY_PAGE=(Path(__file__).parent/'memory.html').read_text(encoding='utf-8').replace('__TOKEN__',TOKEN)
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,*args):pass
     def reply(self,status,data,kind='application/json'):
@@ -16,17 +17,22 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(error.status,json.dumps({'error':str(error),'code':error.code,'help':error.help_text},ensure_ascii=False))
     def do_GET(self):
         if self.path=='/':self.reply(200,PAGE.replace('__CORPUS__',desk.CORPUS),'text/html')
+        elif self.path=='/memory':self.reply(200,MEMORY_PAGE,'text/html')
         elif self.path=='/health':self.reply(200,json.dumps({'ok':True,'version':'0.3.1','corpus':desk.CORPUS,'api_key_available':bool(os.environ.get('OPENAI_API_KEY','').strip())}))
         else:self.reply(404,'{}')
     def do_POST(self):
-        if self.path!='/api/answer':return self.reply(404,'{}')
+        if self.path!='/api/answer' and not self.path.startswith('/api/memory/'):return self.reply(404,'{}')
         if self.headers.get('X-Desk-Token')!=TOKEN:return self.error_reply(DeskError('Sivun istunto on vaihtunut.','session_expired',403,'Päivitä sivu ja yritä uudelleen.'))
         try:
             size=int(self.headers.get('Content-Length','0'))
-            if not 0<size<=20000:raise DeskError('Pyyntö on liian suuri tai tyhjä.')
+            # Finnish non-ASCII fields may expand when JSON is escaped.
+            if not 0<size<=(120000 if self.path.startswith('/api/memory/') else 20000):raise DeskError('Pyyntö on liian suuri tai tyhjä.')
             obj=json.loads(self.rfile.read(size))
             if not isinstance(obj,dict):raise DeskError('Virheellinen pyyntö.')
-            out=answer(obj.get('ticket'),obj.get('mode','demo'),obj.get('backend','vector'))
+            if self.path.startswith('/api/memory/'):
+                from solution_memory import dispatch
+                out=dispatch(self.path.removeprefix('/api/memory/'),obj)
+            else:out=answer(obj.get('ticket'),obj.get('mode','demo'),obj.get('backend','vector'))
             self.reply(200,json.dumps(out,ensure_ascii=False))
         except DeskError as e:self.error_reply(e)
         except (ValueError,TypeError,UnicodeError):self.error_reply(DeskError('Pyyntöä ei voitu lukea.','invalid_request'))
