@@ -4,9 +4,15 @@ Käyttäjän [pikaohje](13_ratkaisumuistin_pikaohje.md) kuvaa nykyiset välilehd
 
 Tavoite: säilytä tukihenkilön vahvistamat ympäristökohtaiset ratkaisut ja löydä
 ne myöhemmissä tukipyynnöissä. Alkuperäinen PoC säilyy tagissa `v0.1.0-poc`.
-Kehitys tehdään haarassa `feature/solution-memory`, ei varaversion tagissa.
+Nykyinen paikallinen kehityshaara on `kehitys/ratkaisumuisti`.
+Vanhempi GitHub-haara `feature/solution-memory` voi sisältää aiemman version.
 
 ## Käynnistäminen
+
+Uuden palautuskopion käyttäjä aloittaa [ensiasennusohjeesta](21_ratkaisumuistin_asennus.md):
+siinä luodaan oma virtuaaliympäristö ja käynnistetään avaimeton kokeilu
+kopion omalla tietokannalla portissa 8513. Alla oleva lyhyt komento olettaa
+valmiin ympäristön eikä tyhjennä mahdollisesti perittyä API-asetusta.
 
 Nykyinen Python-käynnistystapa säilyy. Ratkaisumuistin sanahaku ja tallennus
 eivät tarvitse uusia paketteja, API-avainta tai vektorimallia.
@@ -126,7 +132,8 @@ Haun `hits` säilyttää yhteisen pistejärjestyksen; `compatible_hits` ja
 Ristiriitojen suodatus ei ratkaise kaikkia vastausta vailla olevia kyselyjä.
 Erityisesti saman tuotteen eri oireet tai organisaatiot voivat edelleen
 palauttaa samankaltaisia ehdokkaita. Katso mitatut virheet testiraportin
-rakenteisten ympäristötietojen arvioinnista. Hakuraja on edelleen 0,43.
+rakenteisten ympäristötietojen arvioinnista ja [haun laatumittauksesta](16_ratkaisumuistin_haun_laatuarviointi.md).
+Hakuraja on edelleen 0,43.
 
 ## API-ehdotukset
 

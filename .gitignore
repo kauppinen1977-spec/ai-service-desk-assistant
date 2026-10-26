@@ -72,6 +72,12 @@
 !/tests/ui_memory_test.cjs
 !/tests/ui_memory_browser_test.cjs
 !/docs/15_ratkaisumuistin_luettavuus_testiraportti.md
+!/docs/16_ratkaisumuistin_haun_laatuarviointi.md
+!/docs/17_ratkaisumuistin_arviointiaineisto.md
+!/docs/18_ratkaisumuistin_arviointipohja.md
+!/docs/19_poc_valmiustilanne.md
+!/docs/20_puhdas_ensikayttokoe.md
+!/docs/21_ratkaisumuistin_asennus.md
 !/docs/12_solution_memory.md
 !/docs/13_ratkaisumuistin_pikaohje.md
 !/docs/14_api_kayttoonotto_testiraportti.md

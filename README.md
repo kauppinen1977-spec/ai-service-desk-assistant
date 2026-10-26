@@ -2,6 +2,12 @@
 
 ## Ratkaisumuisti: uusi kehitysversio
 
+Nykyisen paikallisen haaran `kehitys/ratkaisumuisti` palautuskopion
+[ensiasennus ja avaimeton kokeilu](docs/21_ratkaisumuistin_asennus.md)
+on kuvattu erikseen. [Ensikäyttökokeen raportti](docs/20_puhdas_ensikayttokoe.md)
+erittelee testatun version ja ympäristön. Alla olevat vanhemman PoC:n
+asennus- ja testitiedot koskevat omaa julkaisurajaustaan.
+
 Haarassa `feature/solution-memory` sovellukseen on lisätty paikallinen
 ratkaisumuisti: luonnoksen tallennus, ihmisen vahvistus, vahvistettujen
 ratkaisujen sana-/vektorihaku, muokkaus ja käytöstä poistaminen. Erillinen

@@ -1,5 +1,9 @@
 # Ratkaisumuistin pikaohje
 
+Uudelle käyttäjälle: [palautuskopion ensiasennus ja avaimeton kokeilu](21_ratkaisumuistin_asennus.md)
+käyttää porttia 8513. Tämän pikaohjeen portti 8502 viittaa tekijän aiempaan
+kehityspalvelimeen; korvaa se oman palvelimesi portilla.
+
 Avaa `http://127.0.0.1:8502/memory`, kun tämän worktreen palvelin on käynnissä.
 Aloitusnäkymä on **Haku**. Muut välilehdet ovat **Kirjoita ratkaisu** ja
 **Hallinta ja historia**. Välilehden vaihtaminen säilyttää lomaketekstin.
