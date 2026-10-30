@@ -87,7 +87,7 @@ def validate(result,docs):
         elif q['id'].startswith('clarification:') or q['source_id'] not in result['source_ids']:raise bad
     return result
 
-def parse_response(response):
+def parse_response(response, *, plain_text=False):
     if not isinstance(response,dict):raise DeskError('Mallipalvelu palautti tuntemattoman vastauksen.','api_format',502)
     output=response.get('output')
     if not isinstance(output,list):raise DeskError('Mallipalvelun vastaus jäi tyhjäksi.','api_format',502)
@@ -96,6 +96,7 @@ def parse_response(response):
     if any(c.get('type')=='refusal' for c in contents):raise DeskError('Malli kieltäytyi käsittelemästä pyyntöä.','model_refusal',422,'Tarkista kuvitteellisen IT-tukipyynnön sisältö tai siirrä asia ihmiselle.')
     if response.get('status')!='completed':raise DeskError('Mallin vastaus jäi kesken.','model_incomplete',502,'Yritä lyhyemmällä tukipyynnöllä. Osittaista vastausta ei näytetty.')
     texts=[c.get('text') for c in contents if c.get('type')=='output_text' and isinstance(c.get('text'),str)]
+    if plain_text:return ''.join(texts)
     try:return json.loads(''.join(texts))
     except ValueError:raise DeskError('Mallilta ei saatu kelvollista JSON-vastausta.','api_format',502) from None
 
@@ -114,7 +115,18 @@ def call_model(ticket,docs,opener=None):
       'text':{'format':{'type':'json_schema','name':'support_selection_v03','strict':True,'schema':schema_for(docs)}}}
     return assemble(validate_selection(request_model(payload,opener),docs),docs,facts)
 
-def request_model(payload,opener=None):
+class WebEvidence(list):
+    """Provider sources and bounded search statuses, held only for this request."""
+    def __init__(self):
+        super().__init__()
+        self.statuses=[]
+        self.source_items=0
+        self.citation_items=0
+        self.response_shape={}
+        self.source_urls=[]
+        self.citation_urls=[]
+
+def request_model(payload,opener=None,*,include_web_sources=False,plain_text=False):
     """Shared transport; callers validate the returned object for their own workflow."""
     key,model,revision=settings.snapshot()
     if not key:raise DeskError('API-avain puuttuu.','missing_api_key',400,'Avaa ratkaisumuistin API-asetukset, liitä avain ja paina Ota käyttöön. Palvelinta ei tarvitse käynnistää uudelleen.')
@@ -129,7 +141,7 @@ def request_model(payload,opener=None):
                 raise DeskError('Mallipalvelun vastaus oli liian suuri.','api_format',502,'Yritä myöhemmin uudelleen tai ilmoita virhekoodi ylläpitäjälle. Lomakkeen teksti säilyy.')
             response=json.loads(raw)
     except urllib.error.HTTPError as e:
-        error=provider_error(e)
+        error=provider_error(e,key)
         settings.record(revision,error.code)
         raise error from None
     except (TimeoutError,socket.timeout):
@@ -146,15 +158,63 @@ def request_model(payload,opener=None):
     except ValueError:
         settings.record(revision,'api_format')
         raise DeskError('Mallipalvelu palautti virheellisen JSON-vastauksen.','api_format',502,'Yritä myöhemmin uudelleen. Avaimen vaihtaminen ei korjaa vastausmuotoa.') from None
-    try:result=parse_response(response)
+    try:result=parse_response(response,plain_text=plain_text)
     except DeskError as error:
         settings.record(revision,error.code)
         raise
     settings.record(revision,'success')
-    return result
+    if not include_web_sources:return result
+    # These are provider response metadata, never URLs invented by the model's JSON.
+    sources=WebEvidence()
+    for item in response.get('output',[]):
+        if isinstance(item,dict) and item.get('type')=='web_search_call':
+            status=item.get('status')
+            sources.statuses.append(status if status in ('completed','failed','incomplete','in_progress','searching') else 'unknown')
+    sources.response_shape = {
+        'response_status': response.get('status') if isinstance(response.get('status'),str) else 'missing',
+        'output_types': [item.get('type','missing') if isinstance(item,dict) and isinstance(item.get('type','missing'),str) else 'non_object' for item in response.get('output',[])],
+        'search_actions': [], 'annotations_fields': [],
+    }
+    web_completed=any(isinstance(item,dict) and item.get('type')=='web_search_call' and item.get('status')=='completed' for item in response.get('output',[]))
+    for item in response.get('output',[]):
+        if not isinstance(item,dict):continue
+        if item.get('type')=='web_search_call':
+            action=item.get('action') if isinstance(item.get('action'),dict) else {}
+            sources.response_shape['search_actions'].append({
+                'status': item.get('status') if isinstance(item.get('status'),str) else 'missing',
+                'action_type': item.get('action',{}).get('type','missing') if isinstance(item.get('action'),dict) and isinstance(item.get('action',{}).get('type','missing'),str) else 'non_string',
+                'action_fields': {str(key): type(value).__name__ for key,value in action.items()},
+                'sources_present': 'sources' in action,
+                'sources_type': type(action.get('sources')).__name__ if 'sources' in action else 'missing',
+                'sources_count': len(action.get('sources')) if isinstance(action.get('sources'),list) else 0,
+            })
+            entries=action.get('sources',[]) if isinstance(action.get('sources'),list) else []
+            sources.source_items+=len(entries)
+            if item.get('status')=='completed':
+                for source in entries:
+                    if isinstance(source,dict) and isinstance(source.get('url'),str) and source['url']:
+                        sources.source_urls.append(source['url'])
+                        entry={'url':source['url'],'title':source.get('title','') if isinstance(source.get('title'),str) else ''}
+                        for key in ('text','snippet','content'):
+                            if isinstance(source.get(key),str) and source[key]:entry['text']=source[key][:2000];break
+                        sources.append(entry)
+        if item.get('type')=='message':
+            for part in item.get('content',[]) if isinstance(item.get('content'),list) else []:
+                if isinstance(part,dict):
+                    annotations=part.get('annotations')
+                    sources.response_shape['annotations_fields'].append({'present':'annotations' in part,'type':type(annotations).__name__ if 'annotations' in part else 'missing','count':len(annotations) if isinstance(annotations,list) else 0})
+                if not isinstance(part,dict) or part.get('type')!='output_text':continue
+                for citation in part.get('annotations',[]) if isinstance(part.get('annotations'),list) else []:
+                    if isinstance(citation,dict) and citation.get('type')=='url_citation':
+                        sources.citation_items+=1
+                        detail=citation.get('url_citation') if isinstance(citation.get('url_citation'),dict) else citation
+                        if web_completed and isinstance(detail.get('url'),str) and detail['url']:
+                            sources.citation_urls.append(detail['url'])
+                            sources.append({'url':detail['url'],'title':detail.get('title','') if isinstance(detail.get('title'),str) else ''})
+    return result,sources
 
 
-def provider_error(error):
+def provider_error(error,key=''):
     """Inspect only bounded machine codes; provider messages may contain secrets."""
     try:
         raw=error.read(65537)
@@ -162,7 +222,9 @@ def provider_error(error):
         detail=obj.get('error',{}) if isinstance(obj,dict) else {}
         code=detail.get('code') if isinstance(detail,dict) else None
         kind=detail.get('type') if isinstance(detail,dict) else None
-    except (OSError,ValueError,UnicodeError):code=kind=None
+        param=detail.get('param') if isinstance(detail,dict) else None
+        message=detail.get('message') if isinstance(detail,dict) else None
+    except (OSError,ValueError,UnicodeError):code=kind=param=message=None
     finally:error.close()
     result=classify_provider_error(error.code,code,kind)
     result.upstream_status=error.code
@@ -170,8 +232,42 @@ def provider_error(error):
     allowed=('invalid_api_key','model_not_found','model_not_allowed','model_access_denied',
              'insufficient_quota','credit_balance_exhausted','billing_hard_limit_reached','billing_not_active',
              'organization_spend_limit_exceeded','project_spend_limit_exceeded','organization_usage_limit_exceeded',
-             'insufficient_permissions','permission_denied','ip_not_authorized','organization_restricted','organization_not_found')
-    result.provider_code=code if isinstance(code,str) and code in allowed else 'unrecognized'
+             'insufficient_permissions','permission_denied','ip_not_authorized','organization_restricted','organization_not_found',
+             'invalid_json_schema','invalid_value','unsupported_value','unknown_parameter','missing_required_parameter',
+             'invalid_request_error','context_length_exceeded','rate_limit_exceeded')
+    result.provider_code=code if isinstance(code,str) and code in allowed and (not key or key not in code) else ('ei ilmoitettu' if code is None else 'ei turvallisesti näytettävissä')
+    # Only known request parameter paths are reflected. Provider text may echo input,
+    # credentials or headers, so never reflect arbitrary field names or messages.
+    safe_params={'model','input','instructions','store','max_output_tokens','tool_choice','tools','tools[0]',
+                 'tools[0].type','tools[0].filters','tools[0].filters.allowed_domains',
+                 'tools[0].filters.allowed_domains[0]','include','include[0]','text','text.format',
+                 'text.format.type','text.format.name','text.format.strict','text.format.schema'}
+    result.provider_param=param if isinstance(param,str) and param in safe_params and (not key or key not in param) else ('ei ilmoitettu' if param is None else 'ei turvallisesti näytettävissä')
+    # A short, fixed interpretation is safe even if the full provider message echoes
+    # the submitted prompt. Do not copy the untrusted text to the page or logs.
+    result.provider_description='Palvelun yksityiskohtaista kuvausta ei voi näyttää turvallisesti.'
+    result.provider_terms=[]
+    if isinstance(message,str):
+        lower=message.casefold()
+        if message.strip()=="Parameter 'filters' not supported with model 'gpt-4.1-mini'" and error.code==400 and param=='tools':
+            result.provider_description='Palvelu ilmoitti, ettei gpt-4.1-mini tue verkkohakutyökalun filters-asetusta.'
+            result.help_text=('Tarkista, että palvelimella on käytössä päivitetty versio. '
+                'Sovellus tarkistaa valmistajan verkkotunnuksen ja lähteen itse. Mallia ei vaihdettu. Lomakkeen teksti säilyy.')
+        elif 'invalid schema' in lower or 'invalid json schema' in lower:
+            result.provider_description='Palvelu ilmoitti vastausskeeman virheelliseksi.'
+        elif 'unknown parameter' in lower or 'unrecognized request argument' in lower:
+            result.provider_description='Palvelu ilmoitti tuntemattoman pyyntöparametrin.'
+        elif 'unsupported' in lower or 'not supported' in lower:
+            result.provider_description='Palvelu ilmoitti, ettei pyynnön osaa tueta.'
+        elif 'missing required' in lower:
+            result.provider_description='Palvelu ilmoitti pakollisen tiedon puuttuvan.'
+        # Fixed vocabulary only: it can narrow a compatibility issue without
+        # returning arbitrary provider text, which may echo secrets or prompts.
+        vocabulary=(('web_search_preview','web_search_preview'),('web_search','web_search'),
+                    ('allowed_domains','allowed_domains'),('tool_choice','tool_choice'),
+                    ('json_schema','json_schema'),('structured outputs','structured outputs'),
+                    ('response_format','response_format'),('text.format','text.format'))
+        result.provider_terms=[label for term,label in vocabulary if term in lower]
     return result
 
 
@@ -192,7 +288,7 @@ def classify_provider_error(status,code,kind):
     if status==404:
         return DeskError('API-resurssia ei löytynyt.','api_not_found',502,'Tarkista mallin tunniste ja saatavuus projektissasi sekä API-osoite. Avainta ei todettu virheelliseksi.')
     if status in (400,422):
-        return DeskError('API-palvelu hylkäsi pyynnön rakenteen.','api_bad_request',502,'Tarkista mallin yhteensopivuus Responses-rajapinnan ja JSON-skeeman kanssa. Ilmoita virhekoodi ylläpitäjälle; avaimen vaihto ei korjaa pyyntörakennetta.')
+        return DeskError('API-palvelu hylkäsi pyynnön.','api_bad_request',502,'Tarkista alla oleva palvelun virhekoodi ja parametri. Hylkäyksen syytä ei voi päätellä pelkästä HTTP-koodista. Lomakkeen teksti säilyy.')
     if 300<=status<400:
         return DeskError('API-palvelu yritti ohjata pyynnön toiseen osoitteeseen.','api_redirect',502,'Pyyntöä ei seurattu avaimen suojaamiseksi. Tarkista verkon välityspalvelin ja API-osoite ylläpitäjän kanssa.')
     return DeskError('API-palvelu palautti palveluvirheen.','api_unavailable',502,'Odota ja yritä myöhemmin uudelleen. Jos virhe toistuu, ilmoita virhekoodi ylläpitäjälle. Avainta ei todettu virheelliseksi.')

@@ -15,7 +15,7 @@ import test_http
 
 
 PROPOSAL = {'title': 'Kuvitteellinen zoomaus', 'solution': 'Palauta zoomaus 100 prosenttiin.',
-            'limitations': 'Kokeilematon harjoitusehdotus.'}
+            'limitations': 'Kokeilematon harjoitusehdotus.', 'commands': [], 'links': []}
 REQUEST = {'problem': 'Harjoitussivu näkyy liian pienenä.', 'environment': 'Kuvitteellinen selain.',
            'send_to_api': True}
 FAKE_KEY = 'fixture-secret-not-a-real-key'
@@ -24,6 +24,12 @@ FAKE_KEY = 'fixture-secret-not-a-real-key'
 def response(value=PROPOSAL):
     return io.BytesIO(json.dumps({'status': 'completed', 'output': [
         {'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps(value)}]}]}).encode())
+
+
+def web_source_response(url='https://support.example.com/help'):
+    return io.BytesIO(json.dumps({'status':'completed','output':[
+        {'type':'web_search_call','status':'completed','action':{'type':'search','sources':[{'url':url,'title':'Support'}]}},
+        {'type':'message','content':[{'type':'output_text','text':'Relevant support results.','annotations':[]}]}]}).encode())
 
 
 def provider_failure(status, code=None, kind=None, raw=None):
@@ -131,7 +137,7 @@ class APISetupTests(unittest.TestCase):
                 status, result, _ = self.post('suggest', dict(REQUEST, api_key='never-send-extra'))
                 self.assertEqual(status, 200)
                 self.assertEqual(result['state'], 'unverified')
-                self.assertEqual(result['suggestion'], PROPOSAL)
+                self.assertEqual(result['suggestion'], dict(PROPOSAL, web_search=False, additional_instructions=''))
                 request, timeout = seen[-1]
                 self.assertEqual(request.full_url, 'https://api.openai.com/v1/responses')
                 self.assertEqual(request.method, 'POST')
@@ -182,11 +188,96 @@ class APISetupTests(unittest.TestCase):
                 self.assertEqual(provider.call_count, 1)
                 self.assertEqual(self.settings.status()['last_result'], expected)
 
+    def test_gpt41mini_web_search_does_not_reintroduce_filters_after_old_rejection(self):
+        self.configure()
+        body={'error':{'message':"Parameter 'filters' not supported with model 'gpt-4.1-mini'",'type':'invalid_request_error','code':None,'param':'tools'}}
+        with patch('desk.open_model', side_effect=provider_failure(400,raw=json.dumps(body).encode())) as provider:
+            status,result,_=self.post('suggest',dict(REQUEST,web_search=True,vendor_domain='microsoft.com'))
+        self.assertEqual(status,502)
+        self.assertEqual(result['code'],'api_bad_request')
+        self.assertEqual(result['provider_param'],'tools')
+        self.assertEqual(result['provider_code'],'ei ilmoitettu')
+        self.assertIn('gpt-4.1-mini',result['provider_description'])
+        self.assertIn('Sovellus tarkistaa valmistajan verkkotunnuksen',result['help'])
+        provider.assert_called_once()
+        payload=json.loads(provider.call_args.args[0].data)
+        self.assertEqual(payload['model'],'gpt-4.1-mini')
+        self.assertEqual(payload['tools'],[{'type':'web_search'}])
+        self.assertEqual(payload['include'],['web_search_call.action.sources'])
+        self.assertIsInstance(payload['input'],str)
+        self.assertNotIn('text',payload)
+
+    def test_web_search_preserves_selected_model_and_omits_filters(self):
+        for model in ('gpt-4.1-mini','custom-fixture-model'):
+            self.configure(model=model)
+            with self.subTest(model=model), patch('desk.open_model',side_effect=[web_source_response(),response()]) as provider:
+                status,search,_=self.post('suggest',dict(REQUEST,web_search=True,vendor_domain='example.com',web_stage='search'))
+                self.assertEqual(status,200);self.assertEqual(search['state'],'web_sources_ready')
+                status,result,_=self.post('suggest',dict(REQUEST,web_search=True,vendor_domain='example.com',web_stage='compose',source_request_id=search['source_request_id']))
+                self.assertEqual(status,200);self.assertEqual(result['suggestion']['links'],[])
+                first,second=[json.loads(call.args[0].data) for call in provider.call_args_list]
+                self.assertEqual(first['model'],model);self.assertEqual(first['tools'],[{'type':'web_search'}])
+                self.assertEqual(first['include'],['web_search_call.action.sources']);self.assertNotIn('text',first)
+                self.assertEqual(second['model'],model);self.assertNotIn('tools',second)
+                self.assertEqual(second['text']['format']['type'],'json_schema')
+                provider.assert_has_calls(provider.call_args_list)
+                self.assertEqual(provider.call_count,2)
+
     def test_unreadable_error_bodies_do_not_become_invalid_key(self):
         self.configure()
         for raw in (b'not JSON', b'[]', b'{"error":null}', b'{"error":{"code":[],"type":{}}}', b'x' * 65537):
             with patch('desk.open_model', side_effect=provider_failure(401, raw=raw)):
                 self.assertEqual(self.post('suggest', REQUEST)[1]['code'], 'api_authentication')
+
+    def test_safe_provider_diagnostics_for_both_search_modes(self):
+        self.configure()
+        for web in (False, True):
+            detail={'error':{'code':'invalid_json_schema','type':'invalid_request_error',
+                             'param':'text.format.schema',
+                             'message':'Invalid schema: '+FAKE_KEY+' Authorization: Bearer '+FAKE_KEY+' private prompt'}}
+            with self.subTest(web=web), patch('desk.open_model', side_effect=provider_failure(400, raw=json.dumps(detail).encode())) as provider:
+                status,result,_=self.post('suggest',dict(REQUEST,web_search=web,vendor_domain='example.com'))
+                self.assertEqual(status,502)
+                self.assertEqual(result['provider_code'],'invalid_json_schema')
+                self.assertEqual(result['provider_param'],'text.format.schema')
+                self.assertIn('vastausskeeman',result['provider_description'])
+                self.assertNotIn(FAKE_KEY,json.dumps(result))
+                self.assertNotIn('private prompt',json.dumps(result))
+                payload=json.loads(provider.call_args.args[0].data)
+                self.assertEqual(payload['model'],'gpt-4.1-mini')
+                if web:
+                    self.assertEqual(payload['tools'],[{'type':'web_search'}])
+                    self.assertEqual(payload['include'],['web_search_call.action.sources'])
+                    self.assertEqual(payload['tool_choice'],'required')
+                    self.assertNotIn('text',payload)
+                else:
+                    self.assertEqual(payload['text']['format']['type'],'json_schema')
+                    self.assertNotIn('tools',payload)
+                provider.assert_called_once()
+
+    def test_unknown_provider_fields_and_unsafe_description_are_not_reflected(self):
+        self.configure()
+        detail={'error':{'code':FAKE_KEY,'param':'input.'+FAKE_KEY,'message':'Authorization: Bearer '+FAKE_KEY+' private prompt'}}
+        with patch('desk.open_model', side_effect=provider_failure(400, raw=json.dumps(detail).encode())):
+            _,result,_=self.post('suggest',REQUEST)
+        self.assertEqual(result['provider_code'],'ei turvallisesti näytettävissä')
+        self.assertEqual(result['provider_param'],'ei turvallisesti näytettävissä')
+        self.assertNotIn(FAKE_KEY,json.dumps(result))
+        self.assertNotIn('private prompt',json.dumps(result))
+
+    def test_tools_rejection_exposes_only_safe_compatibility_terms(self):
+        self.configure()
+        for message,terms in [('Unsupported web_search with json_schema. Secret '+FAKE_KEY, ['web_search','json_schema']),
+                              ('Unsupported tool. '+FAKE_KEY, [])]:
+            detail={'error':{'code':None,'type':'invalid_request_error','param':'tools','message':message}}
+            with self.subTest(message=message[:20]), patch('desk.open_model', side_effect=provider_failure(400,raw=json.dumps(detail).encode())) as provider:
+                status,result,_=self.post('suggest',dict(REQUEST,web_search=True,vendor_domain='example.com'))
+            self.assertEqual(status,502)
+            self.assertEqual(result['provider_code'],'ei ilmoitettu')
+            self.assertEqual(result['provider_param'],'tools')
+            self.assertEqual(result['provider_terms'],terms)
+            self.assertNotIn(FAKE_KEY,json.dumps(result))
+            provider.assert_called_once()
 
     def test_network_errors_and_timeouts_never_become_key_errors(self):
         self.configure()

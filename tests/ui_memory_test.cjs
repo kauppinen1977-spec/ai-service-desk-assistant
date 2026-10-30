@@ -35,7 +35,7 @@ function createHarness(initial=[]){
   }if(token.trim())stack.at(-1)._text+=token.trim();
  }
  let rows=clone(initial);const response=(value,ok=true)=>({ok,json:async()=>clone(value)});
- const context={document,getComputedStyle:()=>({borderTopWidth:'1',borderBottomWidth:'1',paddingTop:'10',paddingBottom:'10',lineHeight:'24',minHeight:'310'}),window:{addEventListener(){},confirm:text=>{confirmText.push(text);return confirmations.length?confirmations.shift():true;},prompt:(message,initial='')=>{promptDefaults.push(initial);return prompts.length?prompts.shift():(initial||'Kuvitteellinen poistamisen syy');}},fetch:async(url,options)=>{
+ const context={document,navigator:{},getComputedStyle:()=>({borderTopWidth:'1',borderBottomWidth:'1',paddingTop:'10',paddingBottom:'10',lineHeight:'24',minHeight:'310'}),window:{addEventListener(){},confirm:text=>{confirmText.push(text);return confirmations.length?confirmations.shift():true;},prompt:(message,initial='')=>{promptDefaults.push(initial);return prompts.length?prompts.shift():(initial||'Kuvitteellinen poistamisen syy');}},fetch:async(url,options)=>{
   assert(url.startsWith('/api/memory/'),'Only mocked local memory actions allowed');const action=url.split('/').pop(),body=JSON.parse(options.body);calls.push({action,body});
   const pending=faults.get(action);if(pending?.length){const fault=pending.shift();if(fault instanceof Error)throw fault;return response(fault,false);}
   const override=overrides.get(action);if(override?.length)return response(override.shift());
@@ -44,7 +44,9 @@ function createHarness(initial=[]){
   if(action==='list')return response({records:rows});
   if(action==='save'){const old=rows.find(row=>row.id===body.id);const row={...sample,...body,id:old?old.id:'SOL-new-'+(++serial),revision:old?old.revision+1:1,status:'draft',verified_at:null,verified_by:null};rows=rows.filter(r=>r.id!==row.id);rows.push(row);return response({record:row});}
   if(action==='verify'||action==='retire'){const row=rows.find(r=>r.id===body.id);assert(row);Object.assign(row,action==='verify'?{status:'verified',verified_by:body.verified_by,verified_at:sample.updated_at}:{status:'retired',retirement_reason:body.reason},{revision:row.revision+1});return response({record:row});}
+  if(action==='delete'){const row=rows.find(r=>r.id===body.id);assert(row&&row.revision===body.revision&&row.title===body.confirmation_title);rows=rows.filter(r=>r.id!==body.id);return response({deleted_id:body.id});}
   if(action==='search'){if(searchResult)return response(searchResult);return response({state:'empty',hits:[],compatible_hits:[],review_hits:[]});}
+  if(action==='suggest'&&body.web_stage==='search')return response({state:'web_sources_ready',source_request_id:'f'.repeat(32),web_diagnostics:{source_search:{accepted_source_count:1}}});
   if(action==='suggest')return response({state:'unverified',suggestion:{title:'API-luonnos',solution:'Kuvitteellinen kokeilematon ehdotus.',limitations:'Ei kokeiltu oikeassa ympäristössä.'}});
   throw Error(action);
  }};
@@ -54,12 +56,12 @@ function createHarness(initial=[]){
  async function submit(id){assert(visible(elements[id]));return elements[id].onsubmit({preventDefault(){}});}
  function input(id,value){elements[id].value=value;elements[id].handlers.input?.({target:elements[id]});}
  function snapshot(){return fields.map(key=>elements[key].value);}
- const harness={elements,document,calls,confirmations,prompts,confirmText,promptDefaults,get rows(){return rows;},click,submit,input,snapshot,visible,
+ const harness={elements,document,navigator:context.navigator,window:context.window,calls,confirmations,prompts,confirmText,promptDefaults,get rows(){return rows;},click,submit,input,snapshot,visible,
   fill(data=sample){for(const key of fields)elements[key].value=data[key]??'';},
   fail(action,error={error:'Kuvitteellinen palvelinvirhe',help:'Yritä uudelleen.'}){if(!faults.has(action))faults.set(action,[]);faults.get(action).push(error);},
   respond(action,value){if(!overrides.has(action))overrides.set(action,[]);overrides.get(action).push(value);},
   setSearch(value){searchResult=value;},count(action){return calls.filter(call=>call.action===action).length;},
-  action(label){return all(elements.records).find(e=>e.tag==='button'&&e.textContent===label);},
+  action(label){const e=all(elements.records).find(e=>e.tag==='button'&&e.textContent===label);if(e&&!visible(e)){let p=e.parent;while(p&&p.className!=='library-body')p=p.parent;if(p?.hidden){const toggle=p.parent.children[0].children.find(x=>x.className==='library-toggle');toggle.onclick();}}return e;},
   group(label){return elements.hits.children.find(e=>e.children.some(child=>child.tag==='h3'&&child.textContent===label));},
   async key(id,key){let prevented=false;const e=elements[id];e.focus();await e.onkeydown?.({key,preventDefault(){prevented=true;}});return prevented;},
   hold(action='search'){held={};heldAction=action;return held;},release(value){const item=held;held=null;item.resolve(response(value));}
@@ -94,7 +96,22 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  const h=createHarness();h.fill();const before=h.snapshot();await search(h);await h.click('start-suggestion');for(const response of [{state:'safety_stop',message:'Pysähdy turvallisuussyystä.'},{suggestion:{title:'Vajaa'}}]){h.elements['search-consent'].checked=true;h.respond('suggest',response);await h.click('search-suggest');assert.deepEqual(h.snapshot(),before);assert(h.elements['suggestion-preview'].hidden);assert.equal(h.count('save'),0);assert.equal(h.document.activeElement.id,'notice');}
  });
  test('Haku on oletus, muut paneelit piilossa, sivu ei lataa hallintaa automaattisesti',()=>{
- const h=createHarness();assert.equal(h.elements['tab-search'].getAttribute('aria-selected'),'true');assert(!h.elements['panel-search'].hidden);assert(h.elements['panel-editor'].hidden);assert(h.elements['panel-library'].hidden);assert(h.elements['next-steps'].hidden);assert.equal(h.calls.length,0);
+ const h=createHarness();assert.equal(h.elements['tab-search'].getAttribute('aria-selected'),'true');assert(!h.elements['panel-search'].hidden);assert(!h.elements['initial-results'].hidden);assert(h.elements['results-section'].hidden);assert(h.elements['panel-editor'].hidden);assert(h.elements['panel-library'].hidden);assert(h.elements['next-steps'].hidden);assert.equal(h.calls.length,0);
+ });
+ test('Tietoa toimii kaikilta välilehdiltä ja säilyttää lomakkeen ja kohdistuksen',async()=>{
+ const h=createHarness();await beginEditor(h);h.input('solution','Keskeneräinen ratkaisu');const before=h.snapshot();
+ for(const tab of ['tab-search','tab-editor','tab-library']){await h.click(tab);await h.click('open-about');assert(h.elements['about-dialog'].open);assert.equal(h.document.activeElement.id,'about-heading');let prevented=false;h.elements['about-dialog'].handlers.keydown({key:'Tab',shiftKey:true,preventDefault(){prevented=true;}});assert(prevented);assert.equal(h.document.activeElement.id,'close-about');prevented=false;h.elements['about-dialog'].handlers.keydown({key:'Tab',shiftKey:false,preventDefault(){prevented=true;}});assert(prevented);assert.equal(h.document.activeElement.id,'about-github');await h.click('close-about');assert.equal(h.document.activeElement.id,'open-about');assert.deepEqual(h.snapshot(),before);}
+ await h.click('open-about');let prevented=false;h.elements['about-dialog'].handlers.cancel({preventDefault(){prevented=true;}});assert(prevented);assert(!h.elements['about-dialog'].open);assert.equal(h.document.activeElement.id,'open-about');assert.deepEqual(h.snapshot(),before);
+ assert.equal(h.elements['about-guide'].getAttribute('href'),'/pikaohje');assert.equal(h.elements['about-github'].getAttribute('href'),'https://github.com/kauppinen1977-spec/ai-service-desk-assistant');assert.equal(h.elements['about-github'].getAttribute('rel'),'noopener noreferrer');
+ });
+ test('Tyhjät työkalukortit ohitetaan, eikä uudessa lomakkeessa ole komentokorttia',async()=>{
+ const h=createHarness();await beginEditor(h);assert.equal(h.elements['command-editor-list'].children.length,0);await h.click('add-command');await h.click('add-link');const before=h.snapshot();await h.submit('editor');const body=h.calls.find(call=>call.action==='save').body;assert.equal(body.tools.commands.length,0);assert.equal(body.tools.links.length,0);assert.deepEqual(h.snapshot(),before);
+ });
+ test('Osittain täytetty kortti näyttää kenttävirheet ja säilyttää lomakkeen',async()=>{
+ const h=createHarness();await beginEditor(h);await h.click('add-command');const box=h.elements['command-editor-list'].children[0],fields=all(box).filter(e=>e.tag==='textarea');fields[0].value='ver';fields[0].handlers.input();const before=h.snapshot();await h.submit('editor');assert.equal(h.count('save'),0);assert.deepEqual(h.snapshot(),before);const name=all(box).find(e=>e.tag==='input');assert.equal(name.getAttribute('aria-invalid'),'true');assert(all(box).some(e=>e.className==='field-error'&&!e.hidden&&e.textContent.includes('Nimi on pakollinen')));assert.equal(h.document.activeElement,name);
+ });
+ test('Osittainen linkki näyttää puuttuvan osoitteen ja säilyttää lomakkeen',async()=>{
+ const h=createHarness();await beginEditor(h);await h.click('add-link');const box=h.elements['link-editor-list'].children[0],inputs=all(box).filter(e=>e.tag==='input');inputs[0].value='Ohje';inputs[0].handlers.input();const before=h.snapshot();await h.submit('editor');assert.equal(h.count('save'),0);assert.deepEqual(h.snapshot(),before);assert.equal(inputs[1].getAttribute('aria-invalid'),'true');assert(all(box).some(e=>e.className==='field-error'&&!e.hidden&&e.textContent.includes('Osoite on pakollinen')));
  });
  test('Välilehdet: nuolinäppäimet, Home ja End siirtävät fokusta; Enter ja välilyönti avaavat näkymän',async()=>{
  const h=createHarness();assert(await h.key('tab-search','ArrowRight'));assert.equal(h.document.activeElement.id,'tab-editor');assert(!h.elements['panel-search'].hidden);assert.equal(h.calls.length,0);
@@ -105,7 +122,7 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  });
  test('Haku näyttää erilliset ehdokasryhmät, varoitukset ja haun jälkeiset siirtymät',async()=>{
  const h=createHarness(),known={...sample,status:'verified'},review={...sample,id:'SOL-review',title:'Puutteellinen tapaus',status:'verified'};h.setSearch(result([hit(known),hit(review,'needs_review')]));await search(h);
- assert(!h.elements['results-section'].hidden);assert(!h.elements['next-steps'].hidden);assert.equal(h.document.activeElement.id,'results-heading');assert(all(h.group(compatibleLabel)).some(e=>e.textContent===known.title));assert(!all(h.group(compatibleLabel)).some(e=>e.textContent===review.title));assert(all(h.group(reviewLabel)).some(e=>e.textContent===review.title));assert(all(h.elements.hits).some(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio'));
+ assert(!h.elements['results-section'].hidden);assert(h.elements['initial-results'].hidden);assert(!h.elements['next-steps'].hidden);assert.equal(h.document.activeElement.id,'results-heading');assert(all(h.group(compatibleLabel)).some(e=>e.textContent===known.title));assert(!all(h.group(compatibleLabel)).some(e=>e.textContent===review.title));assert(all(h.group(reviewLabel)).some(e=>e.textContent===review.title));assert(all(h.elements.hits).some(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio'));assert(all(h.elements.hits).some(e=>e.className==='hit-tag'&&e.textContent===known.product));
  assert(html.includes('ei takaa ratkaisun toimivuutta'));assert(all(h.elements.hits).some(e=>e.textContent.includes('Vahvistettu aiemmassa tapauksessa')));
  await h.click('copy-query');assert(!h.elements['panel-editor'].hidden);assert.equal(h.elements.problem.value,h.elements.query.value);for(const key in env)assert.equal(h.elements[key].value,env[key]);assert.equal(h.document.activeElement.id,'environment');assert.equal(h.count('suggest'),0);assert.equal(h.count('save'),0);
  });
@@ -160,6 +177,12 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  const h=createHarness([{...sample,status:'verified'}]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Tallentamaton tarkennus');const before=h.snapshot();h.fail('save',{error:'Versioristiriita',help:'Päivitä lista.'});await h.submit('editor');assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');assert(!h.elements['save-draft'].disabled);assert(h.elements['saved-next'].hidden);
  await h.submit('editor');const saves=h.calls.filter(call=>call.action==='save');assert.equal(saves.length,2);assert.equal(saves[0].body.id,sample.id);assert.equal(saves[1].body.id,sample.id);assert.equal(saves[1].body.revision,sample.revision);
  });
+ test('Hallinnan muokkauksen peruminen säilyttää tallennetun tietueen ja hylkäyksen peruminen lomakkeen',async()=>{
+ const h=createHarness([{...sample,status:'verified'}]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Keskeneräinen teksti');h.confirmations.push(false);await h.click('cancel-library-edit');assert.equal(h.elements.solution.value,'Keskeneräinen teksti');assert(!h.elements['panel-editor'].hidden);h.confirmations.push(true);await h.click('cancel-library-edit');assert(!h.elements['panel-library'].hidden);assert.equal(h.rows[0].solution,sample.solution);assert.equal(h.rows[0].status,'verified');assert.equal(h.count('save'),0);
+ });
+ test('Pysyvä poisto vaatii täsmällisen otsikon, ja peruminen säilyttää tietueen',async()=>{
+ for(const status of ['verified','retired']){const h=createHarness([{...sample,status}]);await h.click('tab-library');const remove=h.action('Poista pysyvästi');await h.click(remove);assert(h.elements['delete-dialog'].open);assert(h.elements['delete-target'].textContent.includes(sample.title));assert(h.elements['delete-target'].textContent.includes(sample.id));assert(h.elements['confirm-delete'].disabled);assert.equal(h.document.activeElement.id,'delete-title');await h.click('cancel-delete');assert(!h.elements['delete-dialog'].open);assert.equal(h.document.activeElement,remove);assert.equal(h.count('delete'),0);assert.equal(h.rows.length,1);await h.click(remove);h.input('delete-title',sample.title+' ');assert(h.elements['confirm-delete'].disabled);assert.equal(h.count('delete'),0);h.input('delete-title',sample.title);assert(!h.elements['confirm-delete'].disabled);await h.click('confirm-delete');assert.equal(h.count('delete'),1);assert.equal(h.calls.find(c=>c.action==='delete').body.revision,sample.revision);assert.equal(h.rows.length,0);assert(!h.elements['delete-dialog'].open);assert.equal(h.document.activeElement.id,'library-heading');}
+ });
  test('Onnistunut tallennus on luonnos ja suora siirtymä avaa juuri sen tarkistukseen',async()=>{
  const h=createHarness();await beginEditor(h);const before=h.snapshot();await h.submit('editor');assert.equal(h.rows[0].status,'draft');assert.deepEqual(h.snapshot(),before);assert(!h.elements['saved-next'].hidden);assert(h.elements['saved-message'].textContent.includes('ei vielä näy haussa'));assert.equal(h.document.activeElement.id,'saved-heading');assert.equal(h.count('list'),0);
  await h.click('review-saved');assert(!h.elements['panel-library'].hidden);assert.equal(h.count('list'),1);const card=all(h.elements.records).find(e=>e.id==='record-'+h.rows[0].id);assert.equal(h.document.activeElement,card);assert(card.getAttribute('aria-label').includes(h.rows[0].title));assert(all(card).filter(e=>e.tag==='button').every(e=>e.getAttribute('aria-label').includes(h.rows[0].title)));assert(all(card).find(e=>e.tag==='details').open);assert(h.action('Vahvista aiempi tapaus'));
@@ -175,7 +198,7 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  const h=createHarness([sample]);await h.click('tab-library');await h.click(h.action('Muokkaa'));h.input('solution','Kesken oleva muokkaus');const before=h.snapshot();await h.click('tab-library');h.elements.reviewer.value='Testaaja';h.fail('list');await h.click(h.action('Vahvista aiempi tapaus'));assert.equal(h.rows[0].status,'verified');assert(h.elements.notice.textContent.includes('Vahvistus tallennettiin'));assert(h.elements.notice.textContent.includes('Listan päivitys epäonnistui'));assert.deepEqual(h.snapshot(),before);assert.equal(h.document.activeElement.id,'notice');
  });
  test('Muokkaus on luonnos, käytöstä poisto säilyttää historian ja tilat näkyvät tekstinä',async()=>{
- const h=createHarness([{...sample,status:'verified',verified_by:'Testi',verified_at:sample.updated_at}]);await h.click('tab-library');assert(all(h.elements.records).some(e=>e.textContent.includes('Vahvistetut – aiemmassa tapauksessa kokeillut')));await h.click(h.action('Muokkaa'));assert(h.elements.editing.textContent.includes('poistaa aiemman vahvistuksen'));h.input('solution','Päivitetty ohje');await h.submit('editor');assert.equal(h.rows[0].status,'draft');assert.equal(h.rows[0].verified_by,null);await h.click('review-saved');const before=h.snapshot();h.prompts.push(null);await h.click(h.action('Poista käytöstä'));assert.equal(h.count('retire'),0);h.prompts.push('Harjoituksen ohje vanheni');await h.click(h.action('Poista käytöstä'));assert.equal(h.rows[0].status,'retired');assert(all(h.elements.records).some(e=>e.textContent.includes('Poistetut käytöstä – historia')));assert(all(h.elements.records).some(e=>e.textContent.includes('Harjoituksen ohje vanheni')));assert(!h.action('Muokkaa'));assert(!h.action('Vahvista aiempi tapaus'));assert(!h.action('Poista käytöstä'));assert.deepEqual(h.snapshot(),before);
+ const h=createHarness([{...sample,status:'verified',verified_by:'Testi',verified_at:sample.updated_at}]);await h.click('tab-library');assert(all(h.elements.records).some(e=>e.textContent.includes('Vahvistetut – aiemmassa tapauksessa kokeillut')));await h.click(h.action('Muokkaa'));assert(h.elements.editing.textContent.includes('poistaa aiemman vahvistuksen'));h.input('solution','Päivitetty ohje');await h.submit('editor');assert.equal(h.rows[0].status,'draft');assert.equal(h.rows[0].verified_by,null);assert(!h.elements['panel-library'].hidden);const before=h.snapshot();h.prompts.push(null);await h.click(h.action('Poista käytöstä'));assert.equal(h.count('retire'),0);h.prompts.push('Harjoituksen ohje vanheni');await h.click(h.action('Poista käytöstä'));assert.equal(h.rows[0].status,'retired');assert(all(h.elements.records).some(e=>e.textContent.includes('Poistetut käytöstä – historia')));assert(all(h.elements.records).some(e=>e.textContent.includes('Harjoituksen ohje vanheni')));assert(!h.action('Muokkaa'));assert(!h.action('Vahvista aiempi tapaus'));assert(!h.action('Poista käytöstä'));assert.deepEqual(h.snapshot(),before);
  await h.click('tab-editor');const count=h.count('save');await h.submit('editor');assert.equal(h.count('save'),count);assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('poistettu käytöstä'));
  });
  test('Poistamisen syy säilyy seuraavassa yrityksessä, jos palvelin hylkää käytöstä poiston',async()=>{
@@ -204,7 +227,7 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  });
  test('Tekoälypyynnön eteneminen näkyy ja kaksoispainallus tekee vain yhden pyynnön',async()=>{
  const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();h.hold('suggest');const pending=h.click('suggest');
- assert(h.elements.suggest.disabled);assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'true');assert(h.elements.suggest.textContent.includes('Odotetaan'));assert(h.elements.notice.textContent.includes('45 sekuntia'));assert.deepEqual(h.snapshot(),before);
+ assert(h.elements.suggest.disabled);assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'true');assert(h.elements.suggest.textContent.includes('Odotetaan'));assert(h.elements.notice.textContent.includes('yksi API-pyyntö'));assert.deepEqual(h.snapshot(),before);
  await h.elements.suggest.onclick();assert.equal(h.count('suggest'),1);
  h.release({state:'unverified',suggestion:{title:'Testiehdotus',solution:'Kokeilematon.',limitations:'Testi.'}});await pending;
  assert(!h.elements.suggest.disabled);assert.equal(h.elements.suggest.textContent,'Pyydä tekoälyehdotus');assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'false');assert.equal(h.count('save'),0);
@@ -215,9 +238,126 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  h.fail('suggest',{error:'Kuvitteellinen virhe',help:'Täsmäohje: '+code,code});await h.click('suggest');assert.deepEqual(h.snapshot(),before);assert(h.elements.notice.textContent.includes('Täsmäohje: '+code));assert(h.elements.notice.textContent.includes('Virhekoodi: '+code));assert(!h.elements.suggest.disabled);assert.equal(h.elements['api-options'].getAttribute('aria-busy'),'false');
  }assert.equal(h.count('save'),0);
  });
+ test('Palvelun turvalliset virhetiedot näkyvät kummassakin ehdotuspolussa ja lomakkeet säilyvät',async()=>{
+ for(const source of ['editor','search'])for(const web of [false,true]){
+  const h=createHarness();await beginEditor(h);const before=h.snapshot();
+  if(source==='search'){await h.click('tab-search');await search(h);await h.click('start-suggestion');}else h.elements['api-options'].open=true;
+  h.elements[source+'-web'].checked=web;h.elements[source==='search'?'search-consent':'consent'].checked=true;
+  h.fail('suggest',{error:'Hylätty',help:'Tarkista parametri.',code:'api_bad_request',upstream_status:400,provider_code:'invalid_json_schema',provider_param:'text.format.schema',provider_description:'Palvelu ilmoitti vastausskeeman virheelliseksi.',provider_terms:['web_search','json_schema']});
+  await h.click(source==='search'?'search-suggest':'suggest');
+  for(const value of ['400','invalid_json_schema','text.format.schema','vastausskeeman','web_search','json_schema'])assert(h.elements.notice.textContent.includes(value));
+  assert.deepEqual(h.snapshot(),before);assert.equal(h.calls.filter(c=>c.action==='suggest').at(-1).body.web_search===true,web);assert.equal(h.count('save'),0);
+ }
+ });
+ test('Verkkohaku tekee näkyvästi kaksi peräkkäistä pyyntöä kun lähde hyväksytään',async()=>{
+  const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements['editor-web'].checked=true;h.input('editor-vendor','example.com');h.elements.consent.checked=true;
+  h.hold('suggest');const pending=h.click('suggest');await new Promise(resolve=>setImmediate(resolve));assert.equal(h.elements['editor-suggest-progress'].textContent,'1/2 Haetaan lähteitä');
+  h.release({state:'web_sources_ready',source_request_id:'f'.repeat(32),web_diagnostics:{source_search:{accepted_source_count:1}}});await pending;
+  const requests=h.calls.filter(c=>c.action==='suggest');assert.equal(requests.length,2);assert.equal(requests[0].body.web_stage,'search');assert.equal(requests[1].body.web_stage,'compose');assert.equal(requests[1].body.source_request_id,'f'.repeat(32));assert.equal(h.elements['editor-suggest-progress'].textContent,'2/2 Muodostetaan ratkaisuehdotus');
+ });
+ test('Lähteiden puuttuessa toinen pyyntö jää pois ja tavallinen ehdotus vaatii uuden luvan',async()=>{
+  const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements['editor-web'].checked=true;h.input('editor-vendor','example.com');h.elements.consent.checked=true;const before=h.snapshot();
+  h.respond('suggest',{state:'no_web_sources',message:'Verkkohaku ei tuottanut sovelluksen käytettävissä olevia lähdeosoitteita. Päivityslinkkiä ei voitu varmistaa. Toista API-kutsua ei tehty.',web_diagnostics:{source_search:{accepted_source_count:0},proposal:{status:'not_sent'}}});
+  await h.click('suggest');assert.equal(h.count('suggest'),1);assert(h.elements['editor-web-fallback'].hidden===false);assert.equal(h.elements['editor-suggest-progress'].textContent,'Lähteitä ei saatu; vaihetta 2/2 ei lähetetty.');assert.deepEqual(h.snapshot(),before);
+  await h.click('editor-web-fallback-button');assert.equal(h.elements['editor-web'].checked,false);assert.equal(h.elements.consent.checked,false);assert(h.elements['editor-send-preview'].textContent.includes('Verkkohaku: Ei'));
+  h.elements.consent.checked=true;await h.click('suggest');assert.equal(h.count('suggest'),2);assert.equal(h.calls.filter(c=>c.action==='suggest').at(-1).body.web_search,undefined);
+ });
+ test('Molemmissa esikatseluissa kerrotaan yleisestä verkkohausta ja puuttuvasta lähteestä',async()=>{
+ for(const source of ['editor','search']){
+  const h=createHarness();await beginEditor(h);const before=h.snapshot();
+  if(source==='search'){await h.click('tab-search');await search(h);await h.click('start-suggestion');}else h.elements['api-options'].open=true;
+  const web=h.elements[source+'-web'];web.checked=true;web.handlers.change({target:web});h.input(source+'-vendor','nvidia.com');
+  const preview=h.elements[source+'-send-preview'].textContent;assert(preview.includes('yleinen haku'));assert(preview.includes('sovellus tarkistaa'));assert(preview.includes('nvidia.com'));
+  assert(preview.includes('kaksi peräkkäistä API-pyyntöä'));
+  h.elements[source==='search'?'search-consent':'consent'].checked=true;
+  h.respond('suggest',{state:'web_sources_ready',source_request_id:'f'.repeat(32),web_diagnostics:{source_search:{accepted_source_count:1}}});
+  h.respond('suggest',{suggestion:{title:'Ehdotus',solution:'Tarkistus',limitations:'Ei testattu',commands:[],links:[],web_search:true,web_diagnostics:{statuses:['completed'],source_count:0,api_source_items:0,api_citation_items:0,proposed_count:1,accepted_count:0,rejected:{domain:0,missing_source:1,insufficient_details:0}}}});
+  await h.click(source==='search'?'search-suggest':'suggest');
+  assert(all(h.elements['proposal-tools']).some(e=>e.textContent.includes('Hyväksyttävää lähdelinkkiä ei löytynyt')));
+  assert(all(h.elements['proposal-tools']).some(e=>e.textContent.includes('Päivityslinkkiä ei voitu varmistaa')));
+  assert.deepEqual(h.snapshot(),before);assert.equal(h.count('save'),0);
+ }
+ });
+ test('Ehdotuksen muotoilu käyttää turvallisia elementtejä ja säilyttää siirrettävän alkuperäistekstin',async()=>{
+ for(const source of ['editor','search']){
+  const h=createHarness();await beginEditor(h);
+  if(source==='search'){await h.click('tab-search');await search(h);await h.click('start-suggestion');}else h.elements['api-options'].open=true;
+  const solution='## Tarkistus\n1. **Tärkeä** vaihe <img src=x onerror=bad()>',limitations='**Rajat**';
+  h.respond('suggest',{suggestion:{title:'Otsikko',solution,limitations,commands:[],links:[]}});
+  h.elements[source==='search'?'search-consent':'consent'].checked=true;await h.click(source==='search'?'search-suggest':'suggest');
+  const nodes=all(h.elements['proposal-solution']);assert(nodes.some(e=>e.tag==='h5'));assert(nodes.some(e=>e.tag==='strong'&&e.textContent==='Tärkeä'));assert(!nodes.some(e=>e.tag==='img'||e.tag==='script'));assert(nodes.some(e=>e.textContent.includes('<img')));
+  let copied;h.navigator.clipboard={writeText:async value=>{copied=value}};await h.click('copy-proposal-solution');assert.equal(copied,solution);await h.click('copy-proposal-limitations');assert.equal(copied,limitations);
+  h.confirmations.push(true);await h.click('edit-suggestion');assert(h.elements.solution.value.includes(solution));assert(h.elements.solution.value.includes(limitations));
+ }
+ });
+ test('Erillinen uusi ohje näkyy avattavana ja säilyy kopiossa ja luonnoksessa',async()=>{
+ for(const source of ['editor','search']){
+  const h=createHarness();await beginEditor(h);if(source==='search'){await h.click('tab-search');await search(h);await h.click('start-suggestion');}else h.elements['api-options'].open=true;
+  h.respond('suggest',{suggestion:{title:'Ehdotus',solution:'1. Tarkista laite.',limitations:'Vain testi.',additional_instructions:'Tarkista laitteen malli.',commands:[],links:[]}});
+  h.elements[source==='search'?'search-consent':'consent'].checked=true;await h.click(source==='search'?'search-suggest':'suggest');
+  assert(!h.elements['proposal-additional'].hidden);assert.equal(h.elements['proposal-additional-text'].textContent,'Tarkista laitteen malli.');
+  let copied;h.navigator.clipboard={writeText:async v=>{copied=v}};await h.click('copy-proposal-solution');assert(copied.includes('Tarkista laitteen malli.'));
+  h.confirmations.push(true);await h.click('edit-suggestion');assert(h.elements.solution.value.includes(copied));
+ }
+ });
  test('Semanttinen välilehtirakenne, kenttien nimet, fokus ja kapean näkymän CSS-sopimus',()=>{
  const h=createHarness();for(const name of ['search','editor','library']){const tab=h.elements['tab-'+name],panel=h.elements['panel-'+name];assert.equal(tab.getAttribute('role'),'tab');assert.equal(tab.getAttribute('aria-controls'),panel.id);assert.equal(panel.getAttribute('role'),'tabpanel');assert.equal(panel.getAttribute('aria-labelledby'),tab.id);}
  for(const e of Object.values(h.elements).filter(e=>['input','textarea','select'].includes(e.tag)))assert(html.includes('for="'+e.id+'"')||e.id==='consent','missing visible label '+e.id);
  for(const e of Object.values(h.elements))for(const id of (e.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean))assert(h.elements[id],'missing description '+id);
  assert(html.includes('[hidden]{display:none!important}'));assert(html.includes(':focus-visible'));assert(html.includes('@media(max-width:760px)'));assert(html.includes('.environment-fields{grid-template-columns:1fr}'));assert(html.includes('repeat(3,minmax(0,1fr))'));assert(html.includes('flex-wrap:wrap'));assert(html.includes('min-width:0'));assert.equal(h.elements['search-form'].tag,'form');assert.equal(h.elements.search.type,'submit');
  });
+
+// SOC selection contracts use the same isolated workflow harness as the existing UI tests.
+const selectionButtons=h=>all(h.elements.hits).filter(e=>e.className==='secondary select-hit');
+const detailAction=(h,label)=>all(h.elements['selected-content']).find(e=>e.tag==='button'&&e.textContent===label);
+test('SOC: ei automaattista valintaa, palvelimen järjestys ja ehdokasryhmät säilyvät',async()=>{
+ const a={...sample,status:'verified',id:'SOL-z',title:'Z-tapaus'},b={...a,id:'SOL-a',title:'A-tapaus'};
+ const h=createHarness();h.setSearch(result([hit(a),hit(b)]));await search(h);
+ assert.equal(h.elements['selected-content'].children.length,0);assert(!h.elements['selection-empty'].hidden);
+ assert.deepEqual(selectionButtons(h).map(b=>b.getAttribute('aria-label')),['Näytä ratkaisu – Z-tapaus','Näytä ratkaisu – A-tapaus']);
+});
+test('SOC: valinta näyttää alkuperäiset kentät, varoituksen ja siirtää fokuksen',async()=>{
+ const row={...sample,status:'verified',verified_by:'Vahvistaja',verified_at:sample.updated_at};const h=createHarness();h.setSearch(result([hit(row)]));await search(h);const b=selectionButtons(h)[0];await h.click(b);
+ assert.equal(h.elements['selected-heading'].textContent,row.title);assert.equal(b.getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement.id,'selected-heading');
+ for(const value of [row.solution,'Ongelma: '+row.problem,'Ympäristö: '+row.environment,'tuote: '+row.product,'tuotteen versio: '+row.product_version])assert(all(h.elements['selected-content']).some(e=>e.textContent===value),value);
+ assert(h.elements.notice.textContent.includes('Tarkista soveltuvuus'));assert.equal(h.count('save'),0);assert.equal(h.count('suggest'),0);
+});
+test('SOC: toinen valinta poistaa edellisen valinnan ja näyttää puuttuvien tietojen varoituksen',async()=>{
+ const h=createHarness();h.setSearch(result([hit({...sample,status:'verified'}),hit({...sample,id:'SOL-review',title:'Tarkistettava tapaus',status:'verified'},'needs_review')]));await search(h);const [a,b]=selectionButtons(h);await h.click(a);await h.click(b);
+ assert.equal(a.getAttribute('aria-pressed'),'false');assert.equal(b.getAttribute('aria-pressed'),'true');assert(!a._card.className.includes('selected-record'));assert(all(h.elements['selected-content']).some(e=>e.textContent.includes('Ympäristötiedoissa on puutteita')));
+});
+test('SOC: jokainen hakuun vaikuttava kenttä tyhjentää valitun ratkaisun',async()=>{
+ for(const id of ['query','filter-operating_system','filter-product','filter-product_version','backend']){
+ const h=createHarness();h.setSearch(result([hit({...sample,status:'verified'})]));await search(h);await h.click(selectionButtons(h)[0]);
+ if(id==='backend')h.elements.backend.handlers.change();else h.input(id,'Muuttunut');assert.equal(h.elements['selected-content'].children.length,0,id);assert(!h.elements['selection-empty'].hidden,id);
+ }
+});
+test('SOC: uusi haku, virhe, tyhjä tulos ja turvapysäytys eivät jätä vanhaa ratkaisua näkyviin',async()=>{
+ for(const mode of ['error','empty','safety']){const h=createHarness();h.setSearch(result([hit({...sample,status:'verified'})]));await search(h);await h.click(selectionButtons(h)[0]);
+ if(mode==='error')h.fail('search');else h.setSearch(mode==='empty'?result([]):{state:'safety_stop',message:'Turvallisuuskeskeytys'});await h.submit('search-form');assert.equal(h.elements['selected-content'].children.length,0);assert(!h.elements['selection-empty'].hidden);}
+});
+test('SOC: lukutilan dialogi säilyttää tekstin ja palauttaa fokuksen',async()=>{
+ const h=createHarness();h.setSearch(result([hit({...sample,status:'verified'})]));await search(h);await h.click(selectionButtons(h)[0]);const expand=detailAction(h,'Avaa isona');await h.click(expand);
+ assert(h.elements['record-dialog'].open);assert(all(h.elements['record-dialog-content']).some(e=>e.textContent===sample.solution));await h.click('close-record');assert(!h.elements['record-dialog'].open);assert.equal(h.document.activeElement,expand);
+});
+test('SOC: muokkaus säilyttää tunnisteen, revision ja kaikki ympäristökentät',async()=>{
+ const row={...sample,status:'verified',revision:7};const h=createHarness([row]);h.setSearch(result([hit(row)]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Muokkaa'));
+ assert(!h.elements['panel-editor'].hidden);for(const key of fields)assert.equal(h.elements[key].value,row[key]);await h.submit('editor');const call=h.calls.find(c=>c.action==='save');assert.equal(call.body.id,row.id);assert.equal(call.body.revision,7);assert.equal(h.rows[0].status,'draft');assert.equal(h.elements['selected-content'].children.length,0);
+});
+test('SOC: hallintasiirtymä avaa oikean tietueen muuttamatta keskeneräistä tekstiä',async()=>{
+ const row={...sample,status:'verified'};const h=createHarness([row]);await beginEditor(h);h.input('solution','Oma keskeneräinen teksti');const before=h.snapshot();await h.click('tab-search');h.setSearch(result([hit(row)]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Hallinta ja vahvistustiedot'));
+ assert(!h.elements['panel-library'].hidden);assert.deepEqual(h.snapshot(),before);assert.equal(h.count('save'),0);assert(all(h.elements.records).some(e=>(e.className||'').includes('selected-record')));
+});
+test('SOC: valittu ratkaisu ja lukutila esittävät HTML:n kirjaimellisena tekstinä',async()=>{
+ const row={...sample,status:'verified',title:'<img src=x onerror=bad()>',solution:'<script>bad()</script>\nKoko teksti'};const h=createHarness();h.setSearch(result([hit(row)]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Avaa isona'));
+ for(const id of ['selected-content','record-dialog-content']){assert(all(h.elements[id]).some(e=>e.textContent===row.solution));assert(!all(h.elements[id]).some(e=>e.tag==='img'||e.tag==='script'));}
+});
+test('SOC: API-valikon avaus ei lähetä ehdotuspyyntöä tai muuta lomaketta',async()=>{
+ const h=createHarness();await beginEditor(h);const before=h.snapshot();await h.click('open-api');assert(h.elements['api-settings-panel'].open);assert.equal(h.document.activeElement.id,'api-key');assert.deepEqual(h.snapshot(),before);assert.equal(h.count('suggest'),0);assert.equal(h.count('save'),0);
+});
+
+test('SOC jakoteksti sisältää kaikki todelliset kentät eikä istuntotunnistetta',async()=>{const row={...sample,status:'verified',verified_by:'Tarkistaja',verified_at:sample.updated_at,solution:'Vaihe 1\nRajat: vain testissä\nLOPPU'};const h=createHarness();h.setSearch(result([hit(row)]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Avaa isona'));await h.click('share-record');assert(!h.elements['share-options'].hidden);assert(h.elements['share-status'].textContent.includes('ei ole käytettävissä'));});
+
+test('SOC jako käyttää Web Share -rajapintaa ja kopioi vain valitun tietueen kentät',async()=>{const row={...sample,status:'verified',verified_by:'Tarkistaja',verified_at:sample.updated_at,solution:'Vaihe 1\nSoveltuvuuden rajat\nLOPPU'};const h=createHarness();let shared,copied;h.navigator.share=async value=>{shared=value};h.navigator.clipboard={writeText:async value=>{copied=value}};h.setSearch(result([hit(row)]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Avaa isona'));await h.click('share-record');assert.equal(shared.title,row.title);for(const value of [row.title,row.problem,row.environment,row.operating_system,row.product,row.product_version,row.solution,row.id,row.verified_by])assert(shared.text.includes(value));assert(!shared.text.includes('__TOKEN__'));await h.click('copy-record');assert.equal(copied,shared.text);assert(h.elements['share-status'].textContent.includes('kopioitiin'));});
+test('SOC jako käsittelee peruutuksen, jakovirheen ja kopiointivirheen',async()=>{const h=createHarness();h.setSearch(result([hit({...sample,status:'verified'})]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Avaa isona'));h.navigator.share=async()=>{const e=Error();e.name='AbortError';throw e};await h.click('share-record');assert(h.elements['share-status'].textContent.includes('peruttiin'));h.navigator.share=async()=>{throw Error()};await h.click('share-record');assert(h.elements['share-status'].textContent.includes('ei onnistunut'));h.navigator.clipboard={writeText:async()=>{throw Error()}};await h.click('copy-record');assert(h.elements['share-status'].textContent.includes('leikepöytälupa'));assert(h.elements['record-dialog'].open);});
+test('SOC tulostus kutsuu selaimen tulostusta käyttäjän toiminnolla',async()=>{const h=createHarness();let count=0;h.window.print=()=>count++;h.setSearch(result([hit({...sample,status:'verified'})]));await search(h);await h.click(selectionButtons(h)[0]);await h.click(detailAction(h,'Avaa isona'));assert.equal(count,0);await h.click('print-record');assert.equal(count,1);assert(h.elements['record-dialog'].open);});

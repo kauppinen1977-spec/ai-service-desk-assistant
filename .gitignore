@@ -8,6 +8,9 @@
 !/api_settings.py
 !/solution_memory.py
 !/memory.html
+!/soc-theme.css
+!/soc-banner.jpg
+!/docs/22_soc_kayttoliittyma.md
 !/desk.py
 !/response_rules.py
 !/search.py
@@ -59,6 +62,15 @@
 !/docs/11_github_julkaisusuunnitelma_2026-10-19.md
 !/tests/
 /tests/*
+!/tests/test_soc_http.py
+!/tests/test_memory_tools.py
+!/tests/test_memory_versions.py
+!/tests/test_memory_delete.py
+!/tests/test_memory_ai_tools.py
+!/tests/ui_memory_tools_browser_test.cjs
+!/tests/ui_memory_versions_browser_test.cjs
+!/tests/ui_memory_delete_browser_test.cjs
+!/tests/run_ui_regressions.cjs
 !/tests/test_search.py
 !/tests/test_response_rules.py
 !/tests/test_summary.py

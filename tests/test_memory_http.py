@@ -90,8 +90,22 @@ class MemoryHTTPTests(unittest.TestCase):
         self.assertIn('yhteensopivia ehdokkaita ei löytynyt',result['message'])
 
     def test_every_memory_action_requires_session_token(self):
-        for action in ('list', 'save', 'verify', 'retire', 'search', 'suggest'):
+        for action in ('list', 'save', 'verify', 'retire', 'delete', 'search', 'suggest'):
             self.assertEqual(self.post(action, {}, token='wrong')[0], 403)
+
+    def test_permanent_delete_is_post_only_and_checks_revision_and_title(self):
+        row = self.post('save', SAMPLE)[1]['record']
+        row = self.post('verify', dict(id=row['id'], revision=row['revision'], confirmed=True, verified_by='Testi'))[1]['record']
+        args = dict(id=row['id'], revision=row['revision'], confirmation_title=row['title'])
+        with self.assertRaises(urllib.error.HTTPError) as get_error:
+            urllib.request.urlopen(self.url+'/api/memory/delete', timeout=5)
+        self.assertEqual(get_error.exception.code, 404)
+        self.assertEqual(self.post('delete', args, token='wrong')[0], 403)
+        self.assertEqual(self.post('delete', dict(args, confirmation_title='väärä'))[0], 400)
+        self.assertEqual(self.post('delete', dict(args, revision=1))[0], 409)
+        self.assertEqual(self.post('list', {})[1]['records'][0]['id'], row['id'])
+        self.assertEqual(self.post('delete', args)[0], 200)
+        self.assertEqual(self.post('list', {})[1]['records'], [])
 
     def test_ui_is_served_without_exposing_token_placeholder(self):
         with urllib.request.urlopen(self.url + '/memory') as response:

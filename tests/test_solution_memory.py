@@ -47,6 +47,20 @@ class MemoryTests(unittest.TestCase):
         self.assertTrue(hit['verified_at'])
         self.assertEqual(hit['environment'], SAMPLE['environment'])
 
+    def test_draft_edit_verify_and_rediscover_in_isolated_database(self):
+        draft=self.memory.save(SAMPLE)
+        self.assertEqual(self.memory.search('VPN E42')['hits'],[])
+        edited=self.memory.save(dict(SAMPLE,id=draft['id'],revision=draft['revision'],
+                                     solution='Päivitetty harjoitusohje.'))
+        self.assertEqual(edited['status'],'draft')
+        verified=self.memory.transition(dict(id=edited['id'],revision=edited['revision'],
+            confirmed=True,verified_by='Synteettinen testaaja'),'verified')
+        reopened=Memory(self.path)
+        hit=reopened.search('VPN E42')['hits'][0]['record']
+        self.assertEqual(hit['id'],verified['id'])
+        self.assertEqual(hit['solution'],'Päivitetty harjoitusohje.')
+        self.assertEqual(hit['verified_by'],'Synteettinen testaaja')
+
     def test_verification_requires_explicit_confirmation(self):
         row = self.memory.save(SAMPLE)
         with self.assertRaises(DeskError):
@@ -113,10 +127,10 @@ class MemoryTests(unittest.TestCase):
 
 class SuggestionTests(unittest.TestCase):
     def test_optional_environment_and_declared_fields_are_sent_without_opening_database(self):
-        response = dict(title='Luonnos', solution='Tarkista versio.', limitations='Kokeilematon.')
+        response = dict(title='Luonnos', solution='Tarkista versio.', limitations='Kokeilematon.', commands=[], links=[])
         for context in ({}, {'operating_system': 'Windows 11', 'product': 'AuroraVPN',
                              'product_version': '5.2', 'environment': 'Vapaa kuvaus.'}):
-            with self.subTest(context=context), patch('desk.request_model', return_value=response) as provider, \
+            with self.subTest(context=context), patch('desk.request_model', side_effect=lambda *args, **kwargs: dict(response)) as provider, \
                     patch('solution_memory.Memory', side_effect=AssertionError('Suggestion must not open database')):
                 result = dispatch('suggest', dict(problem=SAMPLE['problem'], send_to_api=True,
                                                   unrelated_secret='never-send', **context))
@@ -146,7 +160,7 @@ class SuggestionTests(unittest.TestCase):
             provider.assert_not_called()
 
     def test_api_result_is_unverified_and_only_explicit_fields_are_sent(self):
-        response = dict(title='VPN E42', solution='Tarkista asiakkaan versio.', limitations='Syy ei ole varma.')
+        response = dict(title='VPN E42', solution='Tarkista asiakkaan versio.', limitations='Syy ei ole varma.', commands=[], links=[])
         with patch('desk.request_model', return_value=response) as provider:
             result = suggest(dict(problem=SAMPLE['problem'], environment=SAMPLE['environment'],
                                   send_to_api=True, unrelated_secret='do-not-send'))
