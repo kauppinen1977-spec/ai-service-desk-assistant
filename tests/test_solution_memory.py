@@ -184,5 +184,167 @@ class SuggestionTests(unittest.TestCase):
         self.assertEqual(result['state'], 'safety_stop')
 
 
+class MemoryKeywordSymptomTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.memory = Memory(Path(self.temp.name) / 'synthetic.sqlite3')
+        self.filters = dict(operating_system='Windows 11', product='LENOVO', product_version='83GS')
+        self.display = self.verified('Näytönohjaimen asetukset Nvidia E42', 'Näytön ohjain asetukset eivät ole kohdillaan',
+                                     'Windows 11 ja Nvidia E42')
+        self.mouse = self.verified('Hiiren vianetsintä', 'Hiiri ei toimi', 'Hiiri ei toimi')
+
+    def verified(self, title, problem, environment):
+        row = self.memory.save(dict(title=title, problem=problem, environment=environment,
+                                    solution='Tarkista laitteen asetukset.', operating_system='Windows 11'))
+        return self.memory.transition(dict(id=row['id'], revision=row['revision'], confirmed=True,
+                                           verified_by='Synteettinen testaaja'), 'verified')
+
+    def search(self, query):
+        return self.memory.search(query, filters=self.filters)
+
+    def test_five_baseline_queries(self):
+        for query in ('Näytön ohjain ei toimi kunnolla ja kaipaan siihen päivitystä',
+                      'Näytönohjain ei toimi'):
+            with self.subTest(query=query):
+                self.assertEqual([h['record']['id'] for h in self.search(query)['hits']], [self.display['id']])
+        self.assertEqual([h['record']['id'] for h in self.search('Hiiri ei toimi')['hits']], [self.mouse['id']])
+        generic = self.search('Ei toimi')
+        self.assertEqual((generic['state'], generic['hits'], generic['message']),
+                         ('clarification', [], 'Mikä laite, ohjelma tai toiminto ei toimi?'))
+        missing = self.search('Teamsissa mikrofoni ei toimi')
+        self.assertEqual((missing['state'], missing['hits']), ('insufficient', []))
+
+    def test_specific_match_suffices_and_symptom_still_adds_score(self):
+        self.assertEqual(self.search('Hiiri')['hits'][0]['score'], 1)
+        self.assertEqual(self.search('Hiiri ei toimi')['hits'][0]['score'], 2)
+        # Search validation already requires five characters, including for codes.
+        for query in ('Nvidia', 'E42!!'):
+            with self.subTest(query=query):
+                self.assertEqual([h['record']['id'] for h in self.search(query)['hits']], [self.display['id']])
+
+    def test_symptom_candidates_filtered_before_top_three(self):
+        for i in range(4):
+            self.verified('Muu laite ' + str(i), 'Laite ei toimi', 'Testiympäristö')
+        self.assertEqual([h['record']['id'] for h in self.search('Hiiri ei toimi')['hits']], [self.mouse['id']])
+
+    def test_environment_alone_or_with_symptom_does_not_qualify(self):
+        self.verified('Näyttö jumittaa', 'Näyttö ei toimi', 'Reititin ZX123 E99')
+        for query in ('ZX123', 'E99!!', 'Reititin ei toimi'):
+            with self.subTest(query=query):
+                result = self.search(query)
+                self.assertEqual(result['hits'], [])
+                self.assertEqual(result['state'], 'insufficient')
+
+    def test_environment_supplements_without_counting_duplicate_words(self):
+        record = self.verified('Skanneri ZX123', 'Skanneri ei toimi', 'Skanneri ZX123 E99')
+        result = self.search('Skanneri ZX123 E99 ei toimi')
+        hit = next(h for h in result['hits'] if h['record']['id'] == record['id'])
+        self.assertEqual(hit['score'], 4)  # skanneri, zx123, e99, toimi, once each
+        self.assertEqual(self.search('Skanneri')['hits'][0]['score'], 1)
+
+    def test_environment_only_cannot_displace_qualifying_top_three(self):
+        for i in range(4):
+            self.verified('Laite jumittaa ' + str(i), 'Laite ei toimi', 'Hiiri hiiri')
+        self.assertEqual([h['record']['id'] for h in self.search('Hiiri ei toimi')['hits']], [self.mouse['id']])
+
+    def test_clarification_is_narrow_and_applies_even_without_eligible_records(self):
+        self.assertEqual(self.search(' EI   TOIMI! ')['state'], 'clarification')
+        self.assertEqual(self.search('Tuntematon laite ei toimi')['state'], 'insufficient')
+        self.assertEqual(self.memory.search('Ei toimi', filters=dict(self.filters, operating_system='macOS'))['state'], 'clarification')
+
+    def test_vector_path_is_not_filtered_or_clarified(self):
+        hit = dict(guide_id=self.mouse['id'], score=0.8)
+        with patch('search.VectorSearch') as vector:
+            vector.return_value.query.return_value = dict(hits=[hit])
+            result = self.memory.search('Ei toimi', 'vector', filters=self.filters)
+        self.assertEqual(result['state'], 'candidates')
+        self.assertEqual(result['hits'][0]['record']['id'], self.mouse['id'])
+
+    def test_boundary_comparison_keeps_symptom_and_environment_rules(self):
+        from keyword_boundary_comparison import boundary_search
+        self.verified('Näyttö jumittaa', 'Näyttö ei toimi', 'Reititin ZX147')
+        for query in ('Ääniohjain ei toimi', 'Reititin ei toimi', 'Missä vika on?'):
+            with self.subTest(query=query):
+                self.assertEqual(boundary_search(self.memory, query, self.filters)['hits'], [])
+        for query in ('Näytön ohjain ei toimi', 'Näytönohjain ei toimi', 'Näytönohjainta päivittää'):
+            with self.subTest(query=query):
+                self.assertIn(self.display['id'], [h['record']['id'] for h in
+                              boundary_search(self.memory, query, self.filters)['hits']])
+        self.assertEqual(boundary_search(self.memory, 'Ei toimi', self.filters)['state'], 'clarification')
+
+
+class JointSearchPrototypeTests(unittest.TestCase):
+    class Model:
+        def encode(self, texts, **kwargs):
+            return [[1., 0.] if any(w in t.casefold() for w in ('skanneri', 'digilaite')) else [0., 1.] for t in texts]
+
+    def setUp(self):
+        from joint_search_prototype import JointSearchPrototype
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.memory = Memory(Path(self.temp.name) / 'joint.sqlite3')
+        row = self.memory.save(dict(title='Skanneri E42', problem='Skanneri ei toimi',
+                                    environment='Vain ympäristössä ZX147', solution='Tarkista laite.',
+                                    operating_system='Windows 11', product='Mallituote', product_version='1'))
+        self.record = self.memory.transition(dict(id=row['id'], revision=row['revision'],
+                                                  confirmed=True, verified_by='Testi'), 'verified')
+        self.search = JointSearchPrototype(self.memory, self.Model())
+
+    def test_scope_filter_and_explicit_conflict_are_preserved(self):
+        self.assertEqual(self.search.search('Skanneri ei toimi', {'operating_system':'macOS'})['hits'], [])
+        hit = self.search.search('Skanneri ei toimi', {'operating_system':'Windows 11'})['hits'][0]
+        self.assertEqual(hit['record']['id'], self.record['id'])
+        self.assertEqual(hit['environment_check']['status'], 'needs_review')
+
+    def test_environment_does_not_supply_lexical_or_semantic_evidence(self):
+        first = self.search.search('Skanneri ZX147')
+        self.assertEqual(first['hits'][0]['keyword_score'], 1)
+        self.assertEqual(self.search.search('ZX147')['hits'], [])
+
+    def test_clarification_and_technical_error_are_distinct(self):
+        self.assertEqual(self.search.search('Ei toimi')['state'], 'clarification')
+        with patch.object(self.search.model, 'encode', side_effect=RuntimeError('mallivirhe')):
+            result = self.search.search('Skanneri ei toimi')
+            empty = self.search.search('Tulostin paperitukos')
+        self.assertEqual(result['semantic_status'], 'error')
+        self.assertTrue(result['keyword_fallback'])
+        from keyword_boundary_comparison import boundary_search
+        self.assertEqual(result['hits'], boundary_search(self.memory, 'Skanneri ei toimi', score_environment=False)['hits'])
+        self.assertEqual((empty['state'], empty['hits'], empty['semantic_status']), ('insufficient', [], 'error'))
+
+    def test_joint_dispatch_fallback_uses_boundary_search_for_both_false_positives(self):
+        row = self.memory.save(dict(title='Windows 11:ssä näytönohjaimen asetukset',
+                                    problem='Näytön ohjain ei toimi', environment='Testi', solution='Tarkista.'))
+        self.memory.transition(dict(id=row['id'], revision=row['revision'], confirmed=True, verified_by='Testi'), 'verified')
+        for query in ('Ääniohjain ei toimi', 'Missä vika on?'):
+            with self.subTest(query=query), patch('joint_search_prototype.encoder', side_effect=RuntimeError('mallivirhe')):
+                result = self.memory.search(query, 'joint')
+                self.assertEqual(result['hits'], [])
+                self.assertEqual(result['semantic_status'], 'error')
+                self.assertEqual(result['message'], 'Merkityshaku ei ole käytettävissä. Näytetään sanahaun tulokset.')
+
+    def test_joint_dispatch_accepts_explicit_option_and_keeps_keyword_default(self):
+        self.assertEqual(self.memory.search('Skanneri ei toimi')['backend'], 'keyword')
+        result = self.memory.search('Skanneri ei toimi', 'joint', self.Model())
+        self.assertEqual(result['backend'], 'joint_prototype')
+        self.assertEqual(result['hits'][0]['record']['id'], self.record['id'])
+
+    def test_no_semantic_candidate_is_a_normal_empty_result(self):
+        result = self.search.search('Tulostin paperitukos')
+        self.assertEqual((result['state'], result['hits']), ('insufficient', []))
+        self.assertEqual(result['semantic_status'], 'ok')
+        self.assertFalse(result['keyword_fallback'])
+
+    def test_semantic_only_candidate_and_request_scope(self):
+        result = self.search.search('Digilaite jumissa')
+        self.assertEqual(result['hits'][0]['record']['id'], self.record['id'])
+        self.assertEqual(result['hits'][0]['keyword_score'], 0)
+        with patch('joint_search_prototype._apply_request_scope', return_value={'hits': []}) as scoped:
+            self.assertEqual(self.search.search('Digilaite jumissa')['hits'], [])
+            scoped.assert_called_once()
+
+
+
 if __name__ == '__main__':
     unittest.main()

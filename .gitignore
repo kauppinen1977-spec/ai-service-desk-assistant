@@ -7,6 +7,8 @@
 !/app.py
 !/api_settings.py
 !/solution_memory.py
+!/joint_search_prototype.py
+!/keyword_boundary_comparison.py
 !/memory.html
 !/soc-theme.css
 !/soc-banner.jpg
@@ -79,6 +81,8 @@
 !/tests/test_memory_environment.py
 !/tests/evaluate_memory_environment.py
 !/tests/evaluate_memory_ranking.py
+!/tests/evaluate_joint_prototype.py
+!/tests/evaluate_joint_new_cases.py
 !/tests/test_memory_http.py
 !/tests/test_api_setup.py
 !/tests/ui_memory_test.cjs

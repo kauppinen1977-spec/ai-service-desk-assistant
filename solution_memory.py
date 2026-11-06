@@ -506,8 +506,11 @@ class Memory:
         from search import VectorSearch, keyword_search, SearchError
         query = text(query, 'Ongelman kuvaus', 4000, 5)
         requested = search_filters(filters)
-        if backend not in ('keyword', 'vector'):
+        if backend not in ('keyword', 'vector', 'joint'):
             raise DeskError('Tuntematon hakutapa.')
+        if backend == 'joint':
+            from joint_search_prototype import JointSearchPrototype
+            return JointSearchPrototype(self, model).search(query, filters)
         stopped = safety_check(query)
         if stopped:
             return stopped
@@ -521,6 +524,12 @@ class Memory:
                              'Samankaltaisuus ei osoita soveltuvuutta. Tarkista oireet ja ympäristö.',
                   'environment_filter': {'requested': requested, 'excluded_count': len(rejected),
                                          'excluded': rejected, 'review_hit_count': 0}}
+        # Only a narrowly recognized symptom-only query asks for clarification;
+        # arbitrary unmatched text is not treated as a known missing object.
+        if backend == 'keyword' and re.fullmatch(r'\W*ei\s+toimi\W*', query.casefold()):
+            output['state'] = 'clarification'
+            output['message'] = 'Mikä laite, ohjelma tai toiminto ei toimi?'
+            return output
         if not eligible:
             return output
         # Exclude conflicts before top-k selection, so they cannot displace valid candidates.
@@ -531,7 +540,16 @@ class Memory:
                                       cache_path=self.path.with_suffix('.vectors.json')).query(
                                           query, apply_poc_heuristics=False)
             else:
-                result = keyword_search(query, guides)
+                # Only a non-symptom title/problem match qualifies a record.
+                # Keep the original full keyword set for scoring, including
+                # environment matches, and filter before selecting the top 3.
+                symptom_words = {'toimi', 'toimii', 'toiminut', 'toimimaton', 'toimimattomuus'}
+                query_folded = query.casefold()
+                specific_guides = [guide for row, guide in zip(eligible, guides) if any(
+                    word not in symptom_words and word in query_folded
+                    for word in set(re.findall(r'[^\W_]{3,}',
+                                               ' '.join(row[k] for k in ('title', 'problem')).casefold())))]
+                result = keyword_search(query, specific_guides)
         except SearchError as error:
             raise DeskError(str(error), 'search_unavailable', 503,
                             'Valitse sanahaku tai tarkista paikallisen vektorihaun asennus.') from None

@@ -84,7 +84,7 @@ dialog::backdrop{background:rgb(18 35 48 / .65)}.large-editor{height:100%;displa
 <p id="filter-help" class="muted">Ympäristörajaukset ovat valinnaisia. Ristiriidat rajataan pois; puuttuvat tiedot on tarkistettava.</p><details class="inline-help"><summary>Lisätietoa rajauksista</summary><p class="muted">Puuttuvaa tietoa ei päätellä ongelmatekstistä. Käytä samaa tuotenimeä ja täsmällistä versiota kuin tietueessa.</p></details>
 <label for="search-environment">Vapaa ympäristökuvaus (valinnainen, tekoälyehdotukseen)</label><textarea form="search-form" id="search-environment" maxlength="2000" aria-describedby="search-environment-help"></textarea>
 <p id="search-environment-help" class="muted">Ei vaikuta hakuun. Lähetetään vain erillisellä luvalla tekoälyehdotukseen.</p>
-<label for="backend">Hakutapa</label><select form="search-form" id="backend"><option value="keyword">Sanahaku – ei lisäasennuksia</option><option value="vector">Vektorihaku – paikallinen upotusmalli</option></select>
+<label for="backend">Hakutapa</label><select form="search-form" id="backend"><option value="keyword">Sanahaku – ei lisäasennuksia</option><option value="vector">Vektorihaku – paikallinen upotusmalli</option><option value="joint">Yhteishaku (kokeilu)</option></select>
 </details></aside><div class="soc-middle">
 <section aria-labelledby="search-heading"><h2 id="search-heading">Kuvaa ongelma ja hae aiempia ratkaisuja</h2>
 <p id="search-help" class="search-warning">Hakutulokset ovat vahvistettuja aiempia tapauksia. Arvioi soveltuvuus uuteen ongelmaan erikseen.</p><details class="inline-help"><summary>Ohje ongelman kuvaamiseen</summary><p>Kerro oireet, tarkka virheilmoitus ja missä tilanteessa ongelma ilmenee.</p></details>
@@ -417,12 +417,12 @@ function renderHits(result){$('hits').replaceChildren();const compatible=result.
    if(check)for(const [source,keys] of [['Ratkaisusta puuttuu',check.missing_record_fields],['Hausta puuttuu',check.missing_query_fields]])if(keys?.length)info.append(node('p',source+': '+keys.map(key=>environmentLabels[key]).join(', '),'muted'));
    info.append(node('p','Hakupisteet: '+hit.score+' · samankaltaisuus ei osoita soveltuvuutta','muted'));card.append(info);group.append(card);
   }$('hits').append(group);
- }if(!result.hits.length)$('hits').append(node('p',result.state==='empty'?'Vahvistettuja ratkaisuja ei vielä ole.':'Hakuehdokkaita ei löytynyt. Tarvitaan lisätietoja tai uusi ratkaisu.','empty'));
+ }if(!result.hits.length)$('hits').append(node('p',result.state==='clarification'?result.message:result.state==='empty'?'Vahvistettuja ratkaisuja ei vielä ole.':'Hakuehdokkaita ei löytynyt. Tarvitaan lisätietoja tai uusi ratkaisu.','empty'));
  return {compatible:compatible.length,review:review.length};
 }
 $('search-form').onsubmit=event=>{event.preventDefault();return run(async()=>{const requestGeneration=++generation;clearSelection();$('initial-results').hidden=false;$('results-section').hidden=true;$('next-steps').hidden=true;notify('Haetaan aiempia tapauksia…');const result=await api('search',{query:$('query').value,backend:$('backend').value,filters:Object.fromEntries(environmentFields.map(key=>[key,$('filter-'+key).value]))});
  if(requestGeneration!==generation)return;if(result.state==='safety_stop'){notify(result.message,true);requestFocus($('notice'));return;}
- const counts=renderHits(result);$('initial-results').hidden=true;$('results-section').hidden=false;$('next-steps').hidden=false;notify('Haku valmis. Ilmoitettujen tietojen perusteella yhteensopivia: '+counts.compatible+'. Tarkistettavia: '+counts.review+'. Ympäristöristiriidan vuoksi rajattu pois: '+(result.environment_filter?.excluded_count||0)+'. Ehdokkaiden toimivuutta ei ole varmistettu.');requestFocus($('results-heading'));
+ const counts=renderHits(result);$('initial-results').hidden=true;$('results-section').hidden=false;$('next-steps').hidden=false;notify((result.semantic_status==='error'?'Merkityshaku ei ole käytettävissä. Näytetään sanahaun tulokset. ':'')+'Haku valmis. Ilmoitettujen tietojen perusteella yhteensopivia: '+counts.compatible+'. Tarkistettavia: '+counts.review+'. Ympäristöristiriidan vuoksi rajattu pois: '+(result.environment_filter?.excluded_count||0)+'. Ehdokkaiden toimivuutta ei ole varmistettu.');requestFocus($('results-heading'));
 });};
 function startFromSearch(){if(!allowEditorReplacement())return;clearEditor();$('problem').value=$('query').value;$('environment').value=$('search-environment').value;for(const key of environmentFields)$(key).value=$('filter-'+key).value;editorChanged();activateTab('editor');requestFocus($('environment'));}
 $('copy-query').onclick=startFromSearch;

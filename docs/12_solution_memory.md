@@ -64,6 +64,47 @@ Se rakennetaan tarvittaessa uudelleen vahvistetuista tietueista, jolloin
 poistettuja tai luonnokseksi muutettuja ratkaisuja ei voi palautua vanhasta
 indeksistä. Alkuperäisen PoC:n välimuisteja ei muuteta.
 
+Hakutavan valikossa on erikseen **Yhteishaku (kokeilu)**. Oletuksena on edelleen
+sanahaku. Yhteishaku yhdistää rajatun sanarajahaun ja paikallisen MiniLM-mallin;
+se käyttää osuvuudessa otsikkoa ja ongelmakuvausta. Ilmoitetut rakenteiset
+ympäristörajaukset tarkistetaan kuten muissakin hauissa. Jos malli ei ole
+käytettävissä, yhteishaku kertoo asiasta ja näyttää sanarajahaun tulokset.
+
+Kokeilun rajoitus: pelkästään vapaaseen ympäristökuvaukseen tallennettu
+mallitunnus, virhekoodi tai valmistaja ei yksin löydä tietuetta yhteishaulla
+eikä sen varahaulla. Kirjaa ongelman kannalta olennainen tunniste myös otsikkoon
+tai ongelmakuvaan. Kokeilu ei tunnista kaikkia taivutuksia tai takaa oikeaa
+osumaa; myös soveltuva tulos voi jäädä löytymättä.
+
+### Hakukokeen toistaminen SOC-työpuussa
+
+Vertailu tarvitsee Git-historian commitin `3d87e01`, SOC-aineiston tiedostossa
+`data/solutions-soc.sqlite3` sekä Python-ympäristön, jossa vektoririippuvuudet ja
+malli `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` ovat jo
+paikallisesti käytettävissä. Vertailu estää verkkoyhteysyritykset eikä lataa
+mallia. Commitin vertailu käyttää nykyistä `search.py`-tiedostoa; se vastaa
+alkuperäistä vain, jos `git diff 3d87e01 -- search.py` on tyhjä.
+
+Suorita SOC-työpuun juuresta. Aseta ensin `$pythonExe` sen Python-ympäristön
+`python.exe`-poluksi, jossa malli ja riippuvuudet ovat käytettävissä:
+
+```powershell
+& $pythonExe -B tests/evaluate_joint_prototype.py
+& $pythonExe -B tests/evaluate_joint_new_cases.py
+```
+
+Ensimmäinen ohjelma vertaa 21 aiempaa kyselyä ja synteettisiä tunnisteita;
+toinen vertaa kymmentä muuta kyselyä neljillä rajauksilla. Molemmat tulostavat
+ennakko-odotukset ennen mallin latausta ja käyttävät SQLite-varmistusrajapinnalla
+luotua väliaikaista kopiota. `HASH_SAME True` tarkoittaa, että lähdetiedoston
+tarkistussumma oli sama ennen ajoa ja sen jälkeen. Ensimmäisen ohjelman
+`JOINT_REGRESSIONS` vertaa tuloksia aiemmin kirjattuihin: vanhaan havaintoon
+kuuluu myös tunnettuja virheitä, eikä sen säilyminen yksin osoita hakulaatua.
+Tulosten vertailu edellyttää saman aineiston lisäksi samaa koodia, mallin
+paikallista revisiota ja vektorikirjastojen versioita; pelkkä tietokannan
+tarkistussumma ei takaa samoja pisteitä. Ohjelmat tulostavat tuloksia ja tietokannan tarkistussumman; käsittele
+tulosteita paikallisina tietoina äläkä lisää niitä Gitiin.
+
 Tulokset ovat tarkistettavia tapauksia, eivät automaattisia diagnooseja.
 Ympäristön soveltuvuuden tarkistaa tukihenkilö. Nykyiset rajatut vaaratilanteiden
 tunnistussäännöt keskeyttävät haun/API-kutsun tunnistetussa tapauksessa.

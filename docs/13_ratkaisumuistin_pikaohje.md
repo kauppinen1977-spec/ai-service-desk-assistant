@@ -25,8 +25,11 @@ HTML-muutokset vaativat palvelimen uudelleenkäynnistyksen ja sivun päivityksen
 
 Kirjoita oireet ja tarkka virheilmoitus **Ongelman kuvaus** -kenttään.
 Anna mahdollisuuksien mukaan käyttöjärjestelmä, tuote ja tuotteen versio.
-Valitse sanahaku tai valmiiksi asennetun paikallisen mallin vektorihaku ja
-paina **Hae aiempia ratkaisuja**.
+Valitse sanahaku, valmiiksi asennetun paikallisen mallin vektorihaku tai
+**Yhteishaku (kokeilu)** ja paina **Hae aiempia ratkaisuja**. Oletus on
+sanahaku. Jos yhteishaun merkitysmalli ei ole käytettävissä, näytetään viesti
+ja sanarajahaun tulokset. Yhteishaku ei löydä pelkästään vapaaseen
+ympäristökuvaukseen tallennettua tunnistetta yksinään.
 
 Rajaukset ovat valinnaisia. Ristiriitaiset ilmoitetut arvot suljetaan pois;
 tyhjä arvo jää tuntemattomaksi, eikä sitä päätellä ongelmatekstistä.
@@ -42,7 +45,7 @@ Tuloksissa erotetaan:
 
 Kumpikaan ryhmä ei lupaa varmasti toimivaa ratkaisua. Vahvistus koskee
 aiempaa tapausta tietyssä ympäristössä. Hakupisteet eivät ole varmuusprosentteja.
-**Näytä ratkaisuvaiheet** avaa ehdokkaan sisällön. Jos yhteensopivia
+**Näytä ratkaisu** avaa ehdokkaan sisällön. Jos yhteensopivia
 hakuehdokkaita ei löydy, se kerrotaan myös tarkistettavien osumien yhteydessä.
 
 ## 2. Kirjoita uusi ratkaisu tai pyydä tekoälyehdotus

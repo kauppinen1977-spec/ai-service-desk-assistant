@@ -69,6 +69,25 @@ function createHarness(initial=[]){
 }
 function hit(record,status='declared_match'){return {record,score:.8,environment_check:{status,missing_record_fields:status==='needs_review'?['product_version']:[],missing_query_fields:[]}};}
 function result(hits){return {state:'candidates',hits,compatible_hits:hits.filter(h=>h.environment_check.status==='declared_match'),review_hits:hits.filter(h=>h.environment_check.status==='needs_review')};}
+test('Oirehaku näyttää palvelimen tarkennuspyynnön ja tavallinen tyhjä tulos pysyy erillisenä',async()=>{
+ const h=createHarness();h.setSearch({state:'clarification',message:'Mikä laite, ohjelma tai toiminto ei toimi?',hits:[],compatible_hits:[],review_hits:[]});await search(h);
+ assert(all(h.elements.hits).some(e=>e.textContent==='Mikä laite, ohjelma tai toiminto ei toimi?'));
+ h.setSearch({state:'insufficient',hits:[],compatible_hits:[],review_hits:[]});await search(h);
+ assert(all(h.elements.hits).some(e=>e.textContent.includes('Hakuehdokkaita ei löytynyt.')));
+ assert(!all(h.elements.hits).some(e=>e.textContent==='Mikä laite, ohjelma tai toiminto ei toimi?'));
+});
+test('Yhteishaku näyttää sanahaun varatulokset ja kertoo mallivirheestä vain virhetilassa',async()=>{
+ const h=createHarness(),row={...sample,status:'verified'};
+ assert.equal(h.elements.backend.value,'keyword');assert(html.includes('value="joint">Yhteishaku (kokeilu)'));
+ h.elements.backend.value='joint';h.input('query','VPN ei toimi');
+ h.setSearch({...result([hit(row)]),semantic_status:'error',keyword_fallback:true});await h.submit('search-form');
+ assert.equal(h.calls.find(c=>c.action==='search').body.backend,'joint');
+ assert(h.elements.notice.textContent.includes('Merkityshaku ei ole käytettävissä. Näytetään sanahaun tulokset.'));
+ assert(all(h.elements.hits).some(e=>e.textContent===row.title));
+ h.setSearch({state:'insufficient',hits:[],semantic_status:'ok',keyword_fallback:false});await h.submit('search-form');
+ assert(!h.elements.notice.textContent.includes('Merkityshaku ei ole käytettävissä.'));
+ assert(all(h.elements.hits).some(e=>e.textContent.includes('Hakuehdokkaita ei löytynyt.')));
+});
 async function beginEditor(h){await h.click('tab-editor');h.fill();}
 async function beginSearchSuggestion(h){await search(h);await h.click('start-suggestion');h.elements['search-consent'].checked=true;return h.click('search-suggest');}
 async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for(const key in env)h.elements['filter-'+key].value=env[key];return h.submit('search-form');}
