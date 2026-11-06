@@ -64,7 +64,7 @@ ratkaisuja tai kirjoituslomakkeen keskeneräistä tekstiä ei lähetetä.
 Lähetettävän kentän muuttaminen poistaa aiemman lähetysluvan.
 
 Kokeilematon ehdotus avautuu samaan Haku-näkymään. Voit lukea sen, palata
-hakutuloksiin tai valita **Muokkaa ja tallenna luonnokseksi**. Siirto avaa
+hakutuloksiin tai valita **Siirrä muokattavaksi**. Siirto avaa
 ehdotuksen uutena luonnoksena kirjoituslomakkeeseen; se ei tallenna mitään
 eikä muuta aiempaa tallennettua tietuetta. Jos lomakkeella on tallentamatonta
 tekstiä, sen korvaaminen kysytään. **Peruuta** säilyttää lomakkeen ja ehdotuksen.
@@ -184,7 +184,7 @@ ladata. Ilman verkkohakua erillinen linkki voi edelleen näkyä tarkistamattoman
 sen osoitetta ei hyväksytä suoritettavan skriptin sisällöksi.
 
 Kun haluat muokata ehdotusta, paina vastauksen yhteydessä
-**Muokkaa ja tallenna luonnokseksi**. Tämä painike
+**Siirrä muokattavaksi**. Tämä painike
 **siirtää** otsikon, ratkaisuvaiheet ja rajat lomakkeeseen. Se ei tallenna
 mitään. Valitse erikseen esikatselussa ne ehdotetut komennot ja linkit, jotka
 haluat siirtää; valitsemattomia ei siirretä. Kirjoituslomakkeelta pyydetyn ehdotuksen siirto kysyy ennen nykyisen

@@ -2,12 +2,14 @@
 // node tests/ui_memory_browser_test.cjs [--live] [path-to-chrome-or-edge.exe]
 // --live checks the real server at port 8502; all POST requests are blocked.
 // --live-search loads that same server's HTML and fulfills POSTs with fixtures in CDP.
+// --joint-db uses JOINT_TEST_BASE from tests/ui_joint_test_server.py (temporary SQLite, fake providers).
 // Run the live modes sequentially: the application uses a single-threaded HTTPServer.
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const {spawn}=require('node:child_process');
 const assert=require('node:assert/strict');
 const liveSearch=process.argv.includes('--live-search');
 const live=process.argv.includes('--live')||liveSearch;
+const jointDb=process.argv.includes('--joint-db');
 const executable=process.argv.slice(2).find(arg=>!arg.startsWith('--'))||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const output=path.resolve(liveSearch?'data/search-suggestion/browser-live':live?'data/ui-readability/live-server/browser':'data/ui-readability/browser');fs.mkdirSync(output,{recursive:true});
 const profile=fs.mkdtempSync(path.join(output,'profile-'));
@@ -100,7 +102,8 @@ async function socWorkflow(base){
  assert.equal(await evaluate(()=>document.querySelectorAll('.select-hit').length),2);assert.equal(await evaluate(()=>document.getElementById('selected-content').children.length),0);
  const layout=await evaluate(()=>{const b=s=>document.querySelector(s).getBoundingClientRect();return {filter:b('.soc-filters').x,results:b('.soc-middle').x,detail:b('.soc-detail').x,background:getComputedStyle(document.body).backgroundColor,banner:getComputedStyle(document.querySelector('.hero')).backgroundImage};});
  assert(layout.filter<layout.results&&layout.results<layout.detail);assert(layout.banner.includes('soc-banner.jpg'));assert.equal(layout.background,'rgb(8, 15, 25)');check('SOC desktop has the banner and three real content columns',layout);
- await evaluate(()=>document.querySelector('.select-hit').focus());await key('Enter');
+ await evaluate(()=>document.getElementById('search').focus());await key('Tab');
+ assert(await evaluate(()=>document.activeElement.classList.contains('select-hit')));await key('Enter');
  assert.equal(await evaluate(()=>document.activeElement.id),'selected-heading');assert.equal(await evaluate(()=>document.querySelector('.select-hit').getAttribute('aria-pressed')),'true');
  assert((await evaluate(()=>document.getElementById('selected-content').textContent)).includes(row.solution));assert.equal(await evaluate(()=>document.querySelectorAll('#selected-content img,#selected-content script').length),0);assert.equal(await evaluate(()=>window.injected===true),false);check('Keyboard selection preserves complete text and renders hostile HTML literally');
  await evaluate(()=>document.getElementById('open-about').click());await key('Escape');assert.equal(await evaluate(()=>document.querySelector('.select-hit').getAttribute('aria-pressed')),'true');assert((await evaluate(()=>document.getElementById('selected-content').textContent)).includes(row.solution));check('About dialog preserves the selected record');
@@ -169,8 +172,46 @@ async function searchWorkflow(base){
  const unchanged=await evaluate(()=>editorSnapshot());suggestFault='api_billing';await evaluate(()=>{document.getElementById('search-consent').checked=true;document.getElementById('search-suggest').click();});await ready();assert((await evaluate(()=>document.getElementById('notice').textContent)).includes('api_billing'));assert((await evaluate(()=>document.getElementById('notice').textContent)).includes('Tarkista kuvitteellinen API-asetus.'));assert.equal(await evaluate(()=>editorSnapshot()),unchanged);suggestFault=null;check('Search provider error retains input and editor and shows the specific code and help');
 }
 
+// The supplied localhost server must use a synthetic SQLite DB, a simulated
+// embedding failure and a fake suggestion provider. No real API is contacted.
+async function jointDbWorkflow(base){
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:800,deviceScaleFactor:1,mobile:false});
+ await cdp.send('Page.navigate',{url:base+'/memory'});await loaded();
+ assert.equal(await evaluate(()=>document.getElementById('backend').value),'keyword');
+ await evaluate(()=>{const b=document.getElementById('backend');b.value='joint';b.dispatchEvent(new Event('change'));const q=document.getElementById('query');q.value='Näyttö jumittaa';q.dispatchEvent(new Event('input'));document.getElementById('search').focus();});
+ await key('Enter');await ready();
+ const first=await evaluate(()=>{const n=document.getElementById('fallback-notice'),card=document.querySelector('.hit-card'),details=card?.querySelector('details'),r=card?.getBoundingClientRect();return {notice:n.textContent,visible:!n.hidden,card:card?.innerText,detailsOpen:details?.open,scoreInDetails:details?.textContent.includes('Hakupisteet:'),width:innerWidth,scrollWidth:document.documentElement.scrollWidth,cardLeft:r?.left,cardRight:r?.right};});
+ assert(first.visible&&first.notice==='Merkityshaku ei ole käytettävissä. Näytetään sanahaun tulokset.');
+ assert(first.card.includes('Ratkaisusta puuttuu: tuote, tuotteen versio'));assert.equal(first.detailsOpen,false);assert(first.scoreInDetails);
+ assert(first.scrollWidth<=375&&first.cardLeft>=0&&first.cardRight<=375);await screenshot('joint-synthetic-375');
+ await evaluate(()=>document.querySelector('.select-hit').focus());await key('Enter');
+ assert.equal(await evaluate(()=>document.querySelector('.select-hit').getAttribute('aria-pressed')),'true');
+ assert.equal(await evaluate(()=>document.getElementById('fallback-notice').hidden),false);
+ assert.equal(await evaluate(()=>document.activeElement.id),'selected-heading');
+ check('375px fallback notice and visible missing fields survive keyboard result selection',first);
+ await evaluate(()=>{const b=document.getElementById('backend');b.value='keyword';b.dispatchEvent(new Event('change'));const q=document.getElementById('query');q.value='Tulostin paperitukos';q.dispatchEvent(new Event('input'));document.getElementById('search').focus();});
+ await key('Enter');await ready();
+ assert.equal(await evaluate(()=>document.getElementById('fallback-notice').hidden),true);
+ assert((await evaluate(()=>document.getElementById('hits').innerText)).includes('Hakuehdokkaita ei löytynyt.'));
+ assert(!(await evaluate(()=>document.getElementById('notice').textContent)).includes('Merkityshaku ei ole käytettävissä.'));
+ check('New ordinary empty search clears the model-failure notice');
+ const count=async()=>await(await fetch(base+'/test/count')).json();const before=await count();
+ await evaluate(()=>document.getElementById('start-suggestion').focus());await key('Enter');
+ await evaluate(()=>{document.getElementById('search-consent').checked=true;document.getElementById('search-suggest').focus();});await key('Enter');await ready();
+ assert.equal(await evaluate(()=>document.getElementById('edit-suggestion').textContent),'Siirrä muokattavaksi');
+ assert.deepEqual(await count(),before);
+ for(let i=0;i<20&&!(await evaluate(()=>document.activeElement.id==='edit-suggestion'));i++)await key('Tab');
+ assert.equal(await evaluate(()=>document.activeElement.id),'edit-suggestion');await key('Enter');await ready();
+ assert.equal(await evaluate(()=>document.getElementById('panel-editor').hidden),false);assert.deepEqual(await count(),before);
+ for(let i=0;i<30&&!(await evaluate(()=>document.activeElement.id==='save-draft'));i++)await key('Tab');
+ assert.equal(await evaluate(()=>document.activeElement.id),'save-draft');await key('Enter');await ready();
+ const after=await count();assert.equal(after.total,before.total+1);assert.equal(after.drafts,before.drafts+1);
+ check('Keyboard transfer does not save; separate save creates one synthetic SQLite draft',{before,after});
+}
+
 (async()=>{
- if(!live)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=live?'http://127.0.0.1:8502':'http://127.0.0.1:'+server.address().port;
+ if(!live&&!jointDb)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=jointDb?process.env.JOINT_TEST_BASE:live?'http://127.0.0.1:8502':'http://127.0.0.1:'+server.address().port;
+ if(jointDb&&!/^http:\/\/127\.0\.0\.1:\d+$/.test(base||''))throw Error('JOINT_TEST_BASE must identify the isolated localhost test server');
  browser=spawn(executable,['--headless=new','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-sync','--disable-extensions','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'--window-size=1280,900','about:blank'],{windowsHide:true,stdio:'ignore'});
  browser.on('error',error=>{throw error;});
  const portFile=path.join(profile,'DevToolsActivePort');await until(()=>fs.existsSync(portFile),'Chromium DevTools');const port=fs.readFileSync(portFile,'utf8').split('\n')[0];
@@ -182,6 +223,7 @@ async function searchWorkflow(base){
  await cdp.send('Fetch.enable',{patterns:[{urlPattern:'*'}]});
  await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
  await cdp.send('Page.navigate',{url:base+'/memory'});await loaded();
+ if(jointDb){await jointDbWorkflow(base);assert.equal(pageErrors.length,0);const result={browser:(await cdp.send('Browser.getVersion')).product,checks,page_errors:pageErrors,external_api_calls:0,synthetic_sqlite:true};console.log(JSON.stringify(result,null,2));return;}
  if(liveSearch){await searchWorkflow(base);const result={url:base+'/memory',browser:(await cdp.send('Browser.getVersion')).product,checks,page_errors:pageErrors,requests:liveRequests,external_api_calls:0,database_actions:0};assert.equal(pageErrors.length,0);assert(!liveRequests.some(request=>request.method==='POST'&&request.allowed));fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));return;}
  if(live){
   assert.equal(await evaluate(()=>location.href),base+'/memory');

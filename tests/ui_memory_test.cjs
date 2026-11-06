@@ -83,10 +83,26 @@ test('Yhteishaku näyttää sanahaun varatulokset ja kertoo mallivirheestä vain
  h.setSearch({...result([hit(row)]),semantic_status:'error',keyword_fallback:true});await h.submit('search-form');
  assert.equal(h.calls.find(c=>c.action==='search').body.backend,'joint');
  assert(h.elements.notice.textContent.includes('Merkityshaku ei ole käytettävissä. Näytetään sanahaun tulokset.'));
+ assert(!h.elements['fallback-notice'].hidden);assert.equal(h.elements['fallback-notice'].textContent,'Merkityshaku ei ole käytettävissä. Näytetään sanahaun tulokset.');
  assert(all(h.elements.hits).some(e=>e.textContent===row.title));
+ const open=all(h.elements.hits).find(e=>e.tag==='button'&&e.textContent==='Näytä ratkaisu');await h.click(open);
+ assert(!h.elements['fallback-notice'].hidden);assert(h.elements.notice.textContent.includes('Avattu aiempi tapaus'));
+ h.hold('search');const pending=h.submit('search-form');assert(h.elements['fallback-notice'].hidden);h.release({state:'insufficient',hits:[],semantic_status:'ok',keyword_fallback:false});await pending;
  h.setSearch({state:'insufficient',hits:[],semantic_status:'ok',keyword_fallback:false});await h.submit('search-form');
  assert(!h.elements.notice.textContent.includes('Merkityshaku ei ole käytettävissä.'));
+ assert(h.elements['fallback-notice'].hidden);
  assert(all(h.elements.hits).some(e=>e.textContent.includes('Hakuehdokkaita ei löytynyt.')));
+});
+test('Tarkistettavan kortin puuttuvat kentät näkyvät heti ja pisteet jäävät lisätietoihin',async()=>{
+ const h=createHarness(),row={...sample,status:'verified'},candidate=hit(row,'needs_review');
+ candidate.environment_check.missing_record_fields=['product','product_version'];candidate.environment_check.missing_query_fields=['operating_system'];
+ h.setSearch(result([candidate]));await search(h);
+ const card=all(h.group(reviewLabel)).find(e=>e.className==='card hit-card');assert(card);
+ for(const text of ['Ratkaisusta puuttuu: tuote, tuotteen versio','Hausta puuttuu: käyttöjärjestelmä']){
+  const line=card.children.find(e=>e.textContent===text);assert(line&&h.visible(line),text);
+ }
+ const details=card.children.find(e=>e.tag==='details');assert(details);assert(all(details).some(e=>e.textContent.startsWith('Hakupisteet:')));
+ assert(!card.children.some(e=>e.textContent.startsWith('Hakupisteet:')));
 });
 async function beginEditor(h){await h.click('tab-editor');h.fill();}
 async function beginSearchSuggestion(h){await search(h);await h.click('start-suggestion');h.elements['search-consent'].checked=true;return h.click('search-suggest');}
@@ -142,6 +158,7 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  test('Haku näyttää erilliset ehdokasryhmät, varoitukset ja haun jälkeiset siirtymät',async()=>{
  const h=createHarness(),known={...sample,status:'verified'},review={...sample,id:'SOL-review',title:'Puutteellinen tapaus',status:'verified'};h.setSearch(result([hit(known),hit(review,'needs_review')]));await search(h);
  assert(!h.elements['results-section'].hidden);assert(h.elements['initial-results'].hidden);assert(!h.elements['next-steps'].hidden);assert.equal(h.document.activeElement.id,'results-heading');assert(all(h.group(compatibleLabel)).some(e=>e.textContent===known.title));assert(!all(h.group(compatibleLabel)).some(e=>e.textContent===review.title));assert(all(h.group(reviewLabel)).some(e=>e.textContent===review.title));assert(all(h.elements.hits).some(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio'));assert(all(h.elements.hits).some(e=>e.className==='hit-tag'&&e.textContent===known.product));
+ const missing=all(h.group(reviewLabel)).find(e=>e.textContent==='Ratkaisusta puuttuu: tuotteen versio');assert(h.visible(missing));assert(!all(h.group(reviewLabel)).filter(e=>e.tag==='details').some(d=>all(d).includes(missing)));
  assert(html.includes('ei takaa ratkaisun toimivuutta'));assert(all(h.elements.hits).some(e=>e.textContent.includes('Vahvistettu aiemmassa tapauksessa')));
  await h.click('copy-query');assert(!h.elements['panel-editor'].hidden);assert.equal(h.elements.problem.value,h.elements.query.value);for(const key in env)assert.equal(h.elements[key].value,env[key]);assert.equal(h.document.activeElement.id,'environment');assert.equal(h.count('suggest'),0);assert.equal(h.count('save'),0);
  });
@@ -165,6 +182,7 @@ async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for
  });
  test('Ehdotuksen siirto kysyy ennen korvaamista ja tallennus tehdään erikseen',async()=>{
  const h=createHarness();await beginEditor(h);h.elements['api-options'].open=true;h.elements.consent.checked=true;const before=h.snapshot();await h.click('suggest');
+ assert.equal(h.elements['edit-suggestion'].textContent,'Siirrä muokattavaksi');
  h.confirmations.push(false);await h.click('edit-suggestion');assert.deepEqual(h.snapshot(),before);assert.equal(h.count('save'),0);assert(!h.elements['suggestion-preview'].hidden);
  await h.click('edit-suggestion');assert.equal(h.elements.title.value,'API-luonnos');assert(h.elements.solution.value.includes('Soveltuvuuden rajat ja puuttuvat tiedot:\nEi kokeiltu'));assert.equal(h.document.activeElement.id,'solution');assert.equal(h.count('save'),0);assert.equal(h.elements.problem.value,sample.problem);assert.equal(h.elements.environment.value,sample.environment);
  const combined=h.elements.solution.value;await h.submit('editor');assert.equal(h.count('save'),1);assert.equal(h.rows[0].solution,combined);assert.equal(h.rows[0].status,'draft');
