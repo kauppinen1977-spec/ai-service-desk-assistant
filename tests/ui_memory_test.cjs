@@ -108,6 +108,22 @@ async function beginEditor(h){await h.click('tab-editor');h.fill();}
 async function beginSearchSuggestion(h){await search(h);await h.click('start-suggestion');h.elements['search-consent'].checked=true;return h.click('search-suggest');}
 async function search(h){h.input('query','Kuvitteellinen VPN E42 -ongelma.');for(const key in env)h.elements['filter-'+key].value=env[key];return h.submit('search-form');}
 
+test('Verkkotunnus koskee vain verkkohakua molemmissa ehdotuspoluissa',async()=>{
+ for(const source of ['search','editor']){
+  const h=createHarness(),web=h.elements[source+'-web'],field=h.elements[source+'-vendor-field'],vendor=h.elements[source+'-vendor'],error=h.elements[source+'-vendor-error'],consent=h.elements[source==='search'?'search-consent':'consent'];
+  if(source==='search'){await search(h);await h.click('start-suggestion');}else{await beginEditor(h);h.elements['api-options'].open=true;}
+  assert.equal(web.checked,false);assert(field.hidden);
+  web.checked=true;web.handlers.change();assert(!field.hidden);h.input(source+'-vendor','Brother');consent.checked=true;
+  await h.click(source==='search'?'search-suggest':'suggest');
+  assert.equal(h.count('suggest'),0);assert(!error.hidden);assert(error.textContent.includes('example.com'));assert.equal(vendor.getAttribute('aria-invalid'),'true');assert.equal(h.document.activeElement,vendor);
+  h.input(source+'-vendor','example.com');assert(error.hidden);assert.equal(vendor.getAttribute('aria-invalid'),'false');assert(h.elements[source+'-send-preview'].textContent.includes('example.com'));h.input(source+'-vendor','Brother');
+  web.checked=false;web.handlers.change();assert(field.hidden&&error.hidden);assert.equal(vendor.value,'Brother');assert(!consent.checked);assert(!h.elements[source+'-send-preview'].textContent.includes('Brother'));
+  await h.click(source==='search'?'search-suggest':'suggest');assert.equal(h.count('suggest'),0);
+  consent.checked=true;await h.click(source==='search'?'search-suggest':'suggest');
+  const body=h.calls.filter(call=>call.action==='suggest').at(-1).body;assert(!('vendor_domain' in body));assert(!('web_search' in body));assert(!h.elements['suggestion-preview'].hidden);
+ }
+});
+
  test('Hakunäkymän esikatselu ja lupa edeltävät lähetystä, kaikki ilmoitetut tiedot välitetään',async()=>{
  const h=createHarness();h.fill();const before=h.snapshot();h.input('search-environment','Kuvitteellinen toimistolaite.');await search(h);assert.equal(h.count('suggest'),0);await h.click('start-suggestion');assert(!h.elements['panel-search'].hidden);assert.equal(h.count('suggest'),0);const preview=h.elements['search-send-preview'].textContent;for(const value of [h.elements.query.value,...Object.values(env),'Kuvitteellinen toimistolaite.'])assert(preview.includes(value));await h.click('search-suggest');assert.equal(h.count('suggest'),0);assert.equal(h.document.activeElement.id,'search-consent');h.elements['search-consent'].checked=true;await h.click('search-suggest');assert.deepEqual(h.calls.find(c=>c.action==='suggest').body,{problem:h.elements.query.value,environment:'Kuvitteellinen toimistolaite.',...env,send_to_api:true});assert.deepEqual(h.snapshot(),before);assert(!h.elements['panel-search'].hidden);assert.equal(h.elements['suggestion-preview'].parent.id,'search-proposal-home');assert(!h.elements['suggestion-preview'].hidden);assert.equal(h.count('save'),0);assert(!h.elements['search-consent'].checked);
  });

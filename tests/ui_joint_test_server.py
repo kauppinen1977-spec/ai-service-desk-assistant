@@ -52,7 +52,7 @@ def main():
 
         with patch('solution_memory.DB_PATH', path), \
              patch('joint_search_prototype.encoder', side_effect=RuntimeError('synthetic model failure')), \
-             patch('desk.request_model', return_value=fake):
+             patch('desk.request_model', side_effect=lambda *args, **kwargs: dict(fake)):
             server = HTTPServer(('127.0.0.1', 0), Handler)
             print(f'TEST_URL http://127.0.0.1:{server.server_port}', flush=True)
             try:

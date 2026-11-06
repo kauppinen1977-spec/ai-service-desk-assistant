@@ -20,7 +20,7 @@ const fixture={id:'SOL-browser',title:'Vanha ratkaisu',problem:'Kuvitteellinen o
 const proposal={title:'Kuvitteellinen <img src=x onerror="window.proposalExecuted=true">',
  solution:'1. Tarkista harjoitussivun zoomaus.\n2. Palauta näkymä normaaliksi.\n<script>window.proposalExecuted=true</script>',
  limitations:'Ei testattu.\nPuuttuva tieto: selaimen versio.\n<a href="javascript:alert(1)">Näytä tämä tekstinä.</a>'};
-let records=[{...fixture}],browser,cdp,blocked=0;const calls=[],checks=[],confirmations=[],liveRequests=[],pageErrors=[];
+let records=[{...fixture}],browser,cdp,blocked=0;const calls=[],checks=[],confirmations=[],liveRequests=[],pageErrors=[],jointRequests=[];
 let socSearch=null;const syntheticAcceptedUrl='https://support.example.com/help';
 let suggestFault=null,holdSuggest=false,releaseSuggest=null,proposalOverride=null;
 async function mockedAction(action,body){
@@ -209,6 +209,30 @@ async function jointDbWorkflow(base){
  check('Keyboard transfer does not save; separate save creates one synthetic SQLite draft',{before,after});
 }
 
+async function vendorToggleWorkflow(base){
+ for(const source of ['search','editor']){
+  await cdp.send('Page.navigate',{url:base+'/memory'});await loaded();
+  if(source==='search'){
+   await evaluate(()=>{const q=document.getElementById('query');q.value='Tulostin ei vedä paperia sisään';q.dispatchEvent(new Event('input'));document.getElementById('search').click();});await ready();
+   await evaluate(()=>document.getElementById('start-suggestion').click());
+  }else{
+   await evaluate(()=>{document.getElementById('tab-editor').click();for(const [id,value] of Object.entries({problem:'Tulostin ei vedä paperia sisään',environment:'Synteettinen testiympäristö'})){const f=document.getElementById(id);f.value=value;f.dispatchEvent(new Event('input'));}document.getElementById('api-options').open=true;});
+  }
+  assert(await evaluate(s=>document.getElementById(s+'-vendor-field').hidden,source));
+  await evaluate(s=>{const web=document.getElementById(s+'-web');web.checked=true;web.dispatchEvent(new Event('change'));const f=document.getElementById(s+'-vendor');f.value='Brother';f.dispatchEvent(new Event('input'));},source);
+  assert(!(await evaluate(s=>document.getElementById(s+'-vendor-field').hidden,source)));
+  const before=jointRequests.length;await evaluate(s=>{document.getElementById(s==='search'?'search-consent':'consent').checked=true;document.getElementById(s==='search'?'search-suggest':'suggest').click();},source);await ready();
+  const invalid=await evaluate(s=>({error:document.getElementById(s+'-vendor-error').innerText,hidden:document.getElementById(s+'-vendor-error').hidden,invalid:document.getElementById(s+'-vendor').getAttribute('aria-invalid'),focus:document.activeElement.id}),source);
+  assert(!invalid.hidden&&invalid.error.includes('example.com'));assert.equal(invalid.invalid,'true');assert.equal(invalid.focus,source+'-vendor');assert.equal(jointRequests.length,before);
+  await evaluate(s=>{const web=document.getElementById(s+'-web');web.checked=false;web.dispatchEvent(new Event('change'));},source);
+  const off=await evaluate(s=>({hidden:document.getElementById(s+'-vendor-field').hidden,errorHidden:document.getElementById(s+'-vendor-error').hidden,value:document.getElementById(s+'-vendor').value,preview:document.getElementById(s+'-send-preview').innerText,consent:document.getElementById(s==='search'?'search-consent':'consent').checked}),source);
+  assert(off.hidden&&off.errorHidden&&!off.consent);assert.equal(off.value,'Brother');assert(!off.preview.includes('Brother'));assert(off.preview.includes('Verkkohaku: Ei'));
+  await evaluate(s=>{document.getElementById(s==='search'?'search-consent':'consent').checked=true;document.getElementById(s==='search'?'search-suggest':'suggest').click();},source);await ready();
+  assert.equal(jointRequests.length,before+1);const sent=jointRequests.at(-1);assert(!('vendor_domain' in sent));assert(!('web_search' in sent));assert(sent.send_to_api);assert(!(await evaluate(()=>document.getElementById('suggestion-preview').hidden)));
+  check('Invalid Brother is explained beside '+source+' field and omitted after web search is disabled');
+ }
+}
+
 (async()=>{
  if(!live&&!jointDb)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=jointDb?process.env.JOINT_TEST_BASE:live?'http://127.0.0.1:8502':'http://127.0.0.1:'+server.address().port;
  if(jointDb&&!/^http:\/\/127\.0\.0\.1:\d+$/.test(base||''))throw Error('JOINT_TEST_BASE must identify the isolated localhost test server');
@@ -219,11 +243,11 @@ async function jointDbWorkflow(base){
  await cdp.send('Page.enable');await cdp.send('Runtime.enable');
  cdp.on('Runtime.exceptionThrown',event=>pageErrors.push(event.exceptionDetails.text));
  cdp.on('Page.javascriptDialogOpening',()=>cdp.send('Page.handleJavaScriptDialog',{accept:confirmations.length?confirmations.shift():true}));
- cdp.on('Fetch.requestPaused',async event=>{const action=event.request.url.startsWith(base+'/api/memory/')?event.request.url.split('/').pop():'';if(liveSearch&&event.request.method==='POST'&&['search','suggest','api-status'].includes(action)){liveRequests.push({url:event.request.url,method:'POST',mocked:true,allowed:false});const result=await mockedAction(action,JSON.parse(event.request.postData));return cdp.send('Fetch.fulfillRequest',{requestId:event.requestId,responseCode:result.error?502:200,responseHeaders:[{name:'Content-Type',value:'application/json'}],body:Buffer.from(JSON.stringify(result)).toString('base64')});}const local=live?['/memory','/soc-theme.css','/soc-banner.jpg'].some(route=>event.request.url===base+route)&&event.request.method==='GET':event.request.url.startsWith(base+'/');if(live)liveRequests.push({url:event.request.url,method:event.request.method,allowed:local});if(!local)blocked++;return cdp.send(local?'Fetch.continueRequest':'Fetch.failRequest',{requestId:event.requestId,...(local?{}:{errorReason:'BlockedByClient'})});});
+ cdp.on('Fetch.requestPaused',async event=>{const action=event.request.url.startsWith(base+'/api/memory/')?event.request.url.split('/').pop():'';if(jointDb&&action==='suggest'&&event.request.method==='POST')jointRequests.push(JSON.parse(event.request.postData||'{}'));if(liveSearch&&event.request.method==='POST'&&['search','suggest','api-status'].includes(action)){liveRequests.push({url:event.request.url,method:'POST',mocked:true,allowed:false});const result=await mockedAction(action,JSON.parse(event.request.postData));return cdp.send('Fetch.fulfillRequest',{requestId:event.requestId,responseCode:result.error?502:200,responseHeaders:[{name:'Content-Type',value:'application/json'}],body:Buffer.from(JSON.stringify(result)).toString('base64')});}const local=live?['/memory','/soc-theme.css','/soc-banner.jpg'].some(route=>event.request.url===base+route)&&event.request.method==='GET':event.request.url.startsWith(base+'/');if(live)liveRequests.push({url:event.request.url,method:event.request.method,allowed:local});if(!local)blocked++;return cdp.send(local?'Fetch.continueRequest':'Fetch.failRequest',{requestId:event.requestId,...(local?{}:{errorReason:'BlockedByClient'})});});
  await cdp.send('Fetch.enable',{patterns:[{urlPattern:'*'}]});
  await cdp.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
  await cdp.send('Page.navigate',{url:base+'/memory'});await loaded();
- if(jointDb){await jointDbWorkflow(base);assert.equal(pageErrors.length,0);const result={browser:(await cdp.send('Browser.getVersion')).product,checks,page_errors:pageErrors,external_api_calls:0,synthetic_sqlite:true};console.log(JSON.stringify(result,null,2));return;}
+ if(jointDb){await jointDbWorkflow(base);await vendorToggleWorkflow(base);assert.equal(pageErrors.length,0);const result={browser:(await cdp.send('Browser.getVersion')).product,checks,page_errors:pageErrors,external_api_calls:0,synthetic_sqlite:true};console.log(JSON.stringify(result,null,2));return;}
  if(liveSearch){await searchWorkflow(base);const result={url:base+'/memory',browser:(await cdp.send('Browser.getVersion')).product,checks,page_errors:pageErrors,requests:liveRequests,external_api_calls:0,database_actions:0};assert.equal(pageErrors.length,0);assert(!liveRequests.some(request=>request.method==='POST'&&request.allowed));fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));return;}
  if(live){
   assert.equal(await evaluate(()=>location.href),base+'/memory');
