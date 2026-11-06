@@ -437,12 +437,75 @@ $env:HF_HUB_DISABLE_TELEMETRY = '1'
 py -3.13 -B (Join-Path $socRoot 'app.py') --corpus batch1 --port 8511
 ```
 
-Jos `py -3.13` ei ole käytettävissä, käytä asennetun Python 3.13:n
-suoritettavaa tiedostoa täydellä polulla. Pidä `Set-Location`, `app.py` ja
-`DESK_MEMORY_DB` SOC-worktreen poluissa; älä käytä toisen worktreen suhteellista
-`app.py`-polkua tai tietokantaa. Tarkista selaimessa
+Jos `py -3.13` ei löydä Pythonia, etsi asennetun Python 3.13:n `python.exe`
+ja korvaa alla olevat esimerkkipolut. Jos Python ei ole asennettuna, asenna
+Python 3.13 ensin. Luo oma virtuaaliympäristö vain, jos `.venv`-kansiota ei
+jo ole; älä korvaa olemassa olevaa ympäristöä. Sanahaku ei vaadi pip-asennusta.
+
+```powershell
+$socRoot = 'C:\oma\Ratkaisumuisti'
+$pythonExe = 'C:\oma\Python313\python.exe'
+Set-Location -LiteralPath $socRoot
+& $pythonExe --version
+if ($LASTEXITCODE -ne 0) { throw 'Pythonin käynnistys epäonnistui; tarkista polku.' }
+& $pythonExe -c "import sys; assert sys.version_info[:2] == (3, 13), 'Tarvitaan Python 3.13'"
+if ($LASTEXITCODE -ne 0) { throw 'Tarkista Pythonin versio.' }
+if (Test-Path -LiteralPath '.venv') { throw '.venv on jo olemassa; älä korvaa sitä.' }
+& $pythonExe -m venv .venv
+if ($LASTEXITCODE -ne 0) { throw 'Virtuaaliympäristön luonti epäonnistui.' }
+& .\.venv\Scripts\python.exe --version
+$env:DESK_MEMORY_DB = [IO.Path]::GetFullPath((Join-Path $socRoot 'data\solutions-soc.sqlite3'))
+$env:HF_HUB_OFFLINE = '1'
+$env:TRANSFORMERS_OFFLINE = '1'
+$env:HF_HUB_DISABLE_TELEMETRY = '1'
+& .\.venv\Scripts\python.exe -B .\app.py --corpus batch1 --port 8513
+```
+
+Valitse tarvittaessa toinen vapaa portti; esimerkissä Ratkaisumuistin osoite on
+`http://127.0.0.1:8513/memory`. Ympäristömuuttujat koskevat tätä PowerShell-
+istuntoa ja siitä käynnistettyjä prosesseja. Pidä `Set-Location`, `app.py` ja
+`DESK_MEMORY_DB` saman kopion poluissa; älä käytä toisen worktreen suhteellista
+`app.py`-polkua tai tietokantaa. Alkuperäisen 8511-esimerkin tilan voit tarkistaa selaimessa
 `http://127.0.0.1:8511/health`: corpus-arvon pitää olla `batch1`.
 Ratkaisumuistin sivu on `http://127.0.0.1:8511/memory`.
+
+### Tietokannan palauttaminen uuteen tiedostoon
+
+Pysäytä ensin **kaikki lähde- ja kohdetietokantaa käyttävät palvelimet ja muut
+ohjelmat** niiden omissa ikkunoissa. Pysäytä palvelin myös ennen kuin teet
+varmuuskopion tietokantatiedostosta. Käytä vain pysäytetystä kannasta tehtyä
+kokonaista varmuuskopiota. Älä kopioi käynnissä olevan SQLite-kannan pelkkää
+päätiedostoa varmuuskopioksi.
+
+Korvaa alla SOC-kopion ja varmuuskopion polut omillasi. Valitse palautukselle
+uusi tiedostonimi `data`-kansiossa. `Copy` epäonnistuu, jos kohde on jo olemassa;
+se ei ylikirjoita alkuperäistä kantaa eikä aiempaa palautusta.
+
+```powershell
+$socRoot = 'C:\oma\Ratkaisumuisti'
+$backup = 'C:\oma\varmuuskopiot\solutions-backup.sqlite3'
+$restored = Join-Path $socRoot 'data\solutions-palautettu.sqlite3'
+Set-Location -LiteralPath $socRoot
+[IO.File]::Copy([IO.Path]::GetFullPath($backup), [IO.Path]::GetFullPath($restored), $false)
+```
+
+Jatka vasta, kun kopiointi onnistui. Käynnistä tavallinen `app.py` palautetulla
+kannalla samasta PowerShell-istunnosta:
+
+```powershell
+$env:DESK_MEMORY_DB = [IO.Path]::GetFullPath($restored)
+$env:HF_HUB_OFFLINE = '1'
+$env:TRANSFORMERS_OFFLINE = '1'
+$env:HF_HUB_DISABLE_TELEMETRY = '1'
+& .\.venv\Scripts\python.exe -B .\app.py --corpus batch1 --port 8513
+```
+
+Jos kopiointi ilmoittaa virheestä, älä käynnistä palautuskomennon loppuosaa:
+tarkista lähde, kohdekansion olemassaolo ja että kohdetiedostoa ei jo ole.
+Käytä toista vapaata porttia, jos 8513 on varattu. Avaa kyseisen portin
+`/memory`-sivu, hae tunnettu vahvistettu ratkaisu ja tarkista **Hallinta ja
+historia** -välilehdeltä myös luonnokset. Luonnokset eivät näy hakutuloksissa.
+Pysäytä palautettua kantaa käyttävä testipalvelin sen omassa ikkunassa.
 
 API-avain ja mallivalinta **Ota käyttöön** -toiminnolla ovat palvelinprosessin
 muistissa. Palvelimen uudelleenkäynnistys palauttaa asetukset käynnistysympäristön
