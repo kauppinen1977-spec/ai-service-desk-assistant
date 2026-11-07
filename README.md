@@ -2,41 +2,29 @@
 
 ## Ratkaisumuisti: uusi kehitysversio
 
-### Palautustilanne: Ratkaisumuistin SOC-versio (7.11.2026)
+### Palautusversio: Ratkaisumuistin SOC-näkymä (7.11.2026)
 
-Palautuksessa erotetaan julkaistu ja paikallinen versio:
+Palautusversio perustuu versioon `74046cb` ja sisältää commitissa
+`01cc544` lisätyn kirjautumisen tarkennusvinkin. Vinkki pyytää yleisen
+kirjautumisongelman yhteydessä lisäämään palvelun tai tilityypin sekä
+virheilmoituksen tai vaiheen, jossa kirjautuminen pysähtyy. Tarkennus on
+vapaaehtoinen. Vinkki ei muuta hakua eikä tulosten järjestystä.
 
-- **Julkaistu versio:** `74046cb4733011a373c2eb77a707068e941accd9`.
-- **Paikallinen versio:** `01cc544ee8fdeaab8aaa48fd1e31a02ee047a5a1`, jossa on
-  kirjautumisen tarkennusvinkki. Tätä muutosta ei ole julkaistu.
+**Varmennus:** 67 käyttöliittymätestiä läpäisi. Edge-selaimessa tehdyssä
+käsintarkistuksessa vinkki näkyi yleisellä kirjautumishaulla ja jäi pois
+tarkennetun Authenticator-haun tuloksista. Automaattinen Chromium-ajo
+aikakatkaistiin ennen näkyvyystarkistusta.
 
-Kirjautumisvinkin varmennuksessa 67 käyttöliittymätestiä läpäisi. Edgessä
-vinkki näkyi yleisellä kirjautumishaulla ja ei näkynyt tarkennetun
-Authenticator-haun tuloksissa. Kuvista ei voitu varmistaa, poistuiko vinkki jo
-kirjoittamisen aikana. Automaattinen Chromium-ajo aikakatkaistiin ennen
-näkyvyystarkistusta.
+**Hakukokeet:** Oletushaku säilyy ennallaan. Erillisessä 11 ratkaistavan
+kyselyn vertailussa nykyinen haku löysi oikean ohjeen kolmen kärkeen
+10 kertaa. Kumpikin kokeiltu vaihtoehto ylsi 9 osumaan. Kokeilut eivät
+sisälly palautusversioon.
 
-Hakujärjestyskokeen päätös on säilyttää oletushaku ennallaan. Kokeilut A
-(otsikon ja ongelmakuvauksen suurempi paino) ja B (sama painotus sekä yleinen
-sananalun vertailu) jäävät erillisiksi kokeiluiksi. Molemmat nostivat
-Authenticator-ohjeen toiselta sijalta ensimmäiseksi haussa
-“Microsoft 365 -työtilin Authenticator-ilmoitus ei saavu”. Uudessa eri aiheita
-kattavassa 11 ratkaistavan kyselyn joukossa nykyinen haku sijoitti oikean
-ohjeen Top 3:een 10/11 kertaa, A ja B kumpikin 9/11 kertaa. B:ssä aidon
-tuntemattoman kirjautumisen haun oikea ohje putosi ensimmäiseltä sijalta
-kolmanneksi. Kokeilujen kyselyt, odotukset ja tulokset ovat hakemistossa
-[`content-prep/experiments/field-weight-ranking/`](content-prep/experiments/field-weight-ranking/).
-
-Ohjepankissa on 200 luonnosta: 126:lla on lähdetuki vähintään ensirajaukseen,
-ja 74:llä on avoin lähdeaukko. Lähteen tarkistus ei tarkoita, että ohje olisi
-käytännössä testattu; nämä tilat pidetään erillisinä. Riippumaton käyttäjäkoe
-on valmisteltu ja siirretty myöhemmäksi, eikä sitä ole vielä tehty.
-
-**Avoinna ennen palautusta:** paikallisen commitin julkaisu tai muu kurssin
-hyväksymä toimitustapa, jos palautuksen pitää sisältää kirjautumisvinkki;
-kurssialustan viralliset paketti-, video- ja työtuntivaatimukset sekä
-riippumattoman käyttäjäkokeen toteutus. Video- tai tuntitietoja ei ole
-vahvistettu tässä dokumentissa.
+**Ohjepankin valmisteluaineisto:** 200 luonnoksesta 126:lla on lähdetuki
+vähintään ensirajaukseen ja 74:llä on avoin lähdeaukko. Lähdetuki ei
+tarkoita käytännön testausta. Luonnokset, testikannat ja kokeilutiedostot
+jäävät palautusversion ulkopuolelle. Riippumaton käyttäjäkoe on
+valmisteltu ja siirretty myöhemmäksi.
 
 Nykyisen paikallisen haaran `kehitys/ratkaisumuisti` palautuskopion
 [ensiasennus ja avaimeton kokeilu](docs/21_ratkaisumuistin_asennus.md)
