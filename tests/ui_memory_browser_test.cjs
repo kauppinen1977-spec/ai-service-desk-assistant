@@ -96,8 +96,16 @@ async function socWorkflow(base){
  const other={...row,id:'SOL-other',title:'Toinen aiempi tapaus'};
  const hit=(record,status)=>({record,score:0.81,environment_check:{status,missing_record_fields:status==='needs_review'?['product_version']:[],missing_query_fields:[]}});
  socSearch={state:'candidates',hits:[hit(row,'declared_match'),hit(other,'needs_review')],compatible_hits:[hit(row,'declared_match')],review_hits:[hit(other,'needs_review')],environment_filter:{excluded_count:1}};
- await cdp.send('Emulation.setDeviceMetricsOverride',{width:1536,height:1000,deviceScaleFactor:1,mobile:false});
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:375,height:800,deviceScaleFactor:1,mobile:false});
  await cdp.send('Page.navigate',{url:base+'/memory'});await loaded();
+ await evaluate(()=>{const q=document.getElementById('query');q.value='Microsoftin tilille kirjautuminen ei onnistu';q.dispatchEvent(new Event('input',{bubbles:true}));document.getElementById('search').click();});await ready();
+ const loginHint=await evaluate(()=>{const e=document.getElementById('login-refinement-hint'),s=getComputedStyle(e),r=e.getBoundingClientRect();return {text:e.textContent,hidden:e.hidden,hiddenAttribute:e.hasAttribute('hidden'),display:s.display,position:s.position,width:s.width,height:s.height,overflow:s.overflow,clipPath:s.clipPath,whiteSpace:s.whiteSpace,rect:[r.x,r.y,r.width,r.height],visibleResults:document.querySelectorAll('.hit-card').length,viewport:innerWidth};});
+ assert(!loginHint.hidden&&!loginHint.hiddenAttribute);assert(loginHint.text.startsWith('Tarkenna hakua:'));assert(loginHint.visibleResults>0);assert(loginHint.display!=='none'&&loginHint.position!=='absolute'&&loginHint.height!=='1px'&&loginHint.width!=='1px'&&loginHint.clipPath==='none'&&loginHint.rect[2]>100&&loginHint.rect[3]>1);check('SOC login refinement hint appears with results at 375px',loginHint);
+ await evaluate(()=>{const q=document.getElementById('query');q.value='Authenticator-ilmoitus ei saavu';q.dispatchEvent(new Event('input',{bubbles:true}));});
+ assert.equal(await evaluate(()=>document.getElementById('login-refinement-hint').hidden),true);
+ await evaluate(()=>document.getElementById('search').click());await ready();
+ assert.equal(await evaluate(()=>{const e=document.getElementById('login-refinement-hint');return {hidden:e.hidden,text:e.textContent};}),{hidden:true,text:''});check('Editing hides the hint and a precise Authenticator search does not restore it');
+ await cdp.send('Emulation.setDeviceMetricsOverride',{width:1536,height:1000,deviceScaleFactor:1,mobile:false});
  await evaluate(()=>{const q=document.getElementById('query');q.value='VPN-yhteys ei muodostu E42';q.dispatchEvent(new Event('input'));document.getElementById('search').click();});await ready();
  assert.equal(await evaluate(()=>document.querySelectorAll('.select-hit').length),2);assert.equal(await evaluate(()=>document.getElementById('selected-content').children.length),0);
  const layout=await evaluate(()=>{const b=s=>document.querySelector(s).getBoundingClientRect();return {filter:b('.soc-filters').x,results:b('.soc-middle').x,detail:b('.soc-detail').x,background:getComputedStyle(document.body).backgroundColor,banner:getComputedStyle(document.querySelector('.hero')).backgroundImage};});

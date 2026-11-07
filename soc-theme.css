@@ -72,6 +72,7 @@ dialog{background:#121f33;color:#f0f5ff;border-color:#526887}dialog::backdrop{ba
   .initial-results-message{margin:0;padding:18px;border:1px solid #304462;border-radius:9px;background:#152238;color:#dce9fb}
   #initial-results>.muted{font-size:.875rem;margin:12px 2px 0}
   .search-warning{color:#c5d5ed;font-size:.9rem;margin:8px 0}
+  .soc-middle #login-refinement-hint{position:static;width:auto;height:auto;overflow:visible;clip-path:none;white-space:normal;padding:10px 12px;border:1px solid #355477;border-left:3px solid #76b6ff;border-radius:8px;background:#152238;color:#e4efff;line-height:1.45}
   .inline-help{margin:3px 0;color:#bbd1f1;font-size:.875rem}
   .inline-help summary{padding:4px 0}.inline-help p{margin:6px 0}
   .soc-filters label{margin-top:12px}.soc-filters .muted{font-size:.85rem;line-height:1.45}

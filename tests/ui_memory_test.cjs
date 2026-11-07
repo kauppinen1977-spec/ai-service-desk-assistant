@@ -76,6 +76,15 @@ test('Oirehaku näyttää palvelimen tarkennuspyynnön ja tavallinen tyhjä tulo
  assert(all(h.elements.hits).some(e=>e.textContent.includes('Hakuehdokkaita ei löytynyt.')));
  assert(!all(h.elements.hits).some(e=>e.textContent==='Mikä laite, ohjelma tai toiminto ei toimi?'));
 });
+test('Yleinen kirjautumishaku saa paikallisen tarkennusvinkin ilman osumien muutoksia',async()=>{
+ const h=createHarness(),rows=[{...sample,id:'SOL-login-a',title:'Kirjautumisen tarkistus',status:'verified'},{...sample,id:'SOL-login-b',title:'Työtilin vianrajaus',status:'verified'}],ordered=rows.map(r=>r.title);
+ h.setSearch(result(rows.map(r=>hit(r))));const query='En pääse enää työtililleni sisään';h.input('query',query);await h.submit('search-form');
+ const hint=h.elements['login-refinement-hint'];assert(!hint.hidden);assert.equal(hint.textContent,'Tarkenna hakua: lisää palvelu tai tilityyppi sekä virheilmoitus tai vaihe, jossa kirjautuminen pysähtyy.');
+ assert.equal(h.elements.query.value,query);assert.deepEqual(all(h.elements.hits).filter(e=>e.tag==='h4').map(e=>e.textContent),ordered);
+ h.input('query','Authenticator-ilmoitus ei saavu');assert(hint.hidden);await h.submit('search-form');assert(hint.hidden);assert.deepEqual(all(h.elements.hits).filter(e=>e.tag==='h4').map(e=>e.textContent),ordered);
+ h.input('query','Microsoft 365 kirjautuminen pysähtyy virheeseen AADSTS50105');await h.submit('search-form');assert(hint.hidden);
+ h.input('query','OneDriven jakolinkki ei avaudu');await h.submit('search-form');assert(hint.hidden);assert.deepEqual(all(h.elements.hits).filter(e=>e.tag==='h4').map(e=>e.textContent),ordered);
+});
 test('Yhteishaku näyttää sanahaun varatulokset ja kertoo mallivirheestä vain virhetilassa',async()=>{
  const h=createHarness(),row={...sample,status:'verified'};
  assert.equal(h.elements.backend.value,'keyword');assert(html.includes('value="joint">Yhteishaku (kokeilu)'));
